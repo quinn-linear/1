@@ -17,7 +17,7 @@ const button = "term-btn";
 
 /**
  * Modal share panel for one card. Nothing is created until it opens, nothing
- * is posted anywhere (X opens its own composer for the user to review), and
+ * is posted anywhere (X opens its own composer for the user to review; it can't be given an image file), and
  * the link and image shown are exactly what recipients will get.
  */
 export function ShareDialog({ card, title, onClose }: { card: CardId; title: string; onClose: () => void }) {
@@ -27,6 +27,8 @@ export function ShareDialog({ card, title, onClose }: { card: CardId; title: str
   const [attempt, setAttempt] = useState(0);
   const [ack, setAck] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
+  // The wide PNG as a file, fetched ahead so the system share sheet can open straight from the click (browsers drop the click's permission while a download is awaited). Only kept when this browser can share files.
+  const [file, setFile] = useState<File | null>(null);
 
   useEffect(() => {
     const el = dialog.current;
@@ -55,6 +57,23 @@ export function ShareDialog({ card, title, onClose }: { card: CardId; title: str
   }, [card, attempt]);
 
   const link = load.status === "ready" ? load.link : null;
+
+  useEffect(() => {
+    if (!link || typeof navigator === "undefined" || typeof navigator.canShare !== "function") return;
+    const abort = new AbortController();
+    (async () => {
+      try {
+        const res = await fetch(link.wideImagePath, { signal: abort.signal });
+        if (!res.ok || !res.headers.get("content-type")?.startsWith("image/png")) return;
+        const png = new File([await res.blob()], `${link.filename}.png`, { type: "image/png" });
+        if (navigator.canShare({ files: [png] })) setFile(png);
+      } catch {
+        // No file sharing: the other buttons still work.
+      }
+    })();
+    return () => abort.abort();
+  }, [link]);
+
   const canShare = !!link && (!link.sensitive || ack);
 
   const copy = async () => {
@@ -68,17 +87,38 @@ export function ShareDialog({ card, title, onClose }: { card: CardId; title: str
     }
   };
 
-  const postToX = () => {
+  const openX = () => {
     if (!link) return;
     const intent = new URL("https://x.com/intent/tweet");
     intent.searchParams.set("text", link.text);
     intent.searchParams.set("url", link.url);
     window.open(intent.toString(), "_blank", "noopener,noreferrer");
-    setNotice({ ok: true, text: "Opened X in a new tab. Nothing is posted until you press Post there." });
   };
 
-  const download = async (format: "story" | "og") => {
-    if (!link) return;
+  // X's web composer takes text and a link, never an image file: the link's card shows the picture as its preview.
+  const postToX = () => {
+    openX();
+    setNotice({ ok: true, text: "Opened X in a new tab with your text and link. X shows the card's image as the link preview. Nothing is posted until you press Post there." });
+  };
+
+  // For people who want the PNG itself in the post: open the composer now (while the click still counts), and save the image to attach there.
+  const saveAndPostToX = async () => {
+    openX();
+    if (await download("og")) setNotice({ ok: true, text: "Image saved and X opened. To attach it, use the image button in X's composer: X can't attach files for us. Nothing is posted until you press Post." });
+  };
+
+  const nativeShare = async () => {
+    if (!link || !file) return;
+    try {
+      await navigator.share({ files: [file], text: link.text, url: link.url });
+      setNotice({ ok: true, text: "Shared. Which apps accept the image depends on your device." });
+    } catch (e) {
+      if ((e as DOMException)?.name !== "AbortError") setNotice({ ok: false, text: "Couldn't open the share sheet. Use Copy link or Download image." });
+    }
+  };
+
+  const download = async (format: "story" | "og"): Promise<boolean> => {
+    if (!link) return false;
     try {
       const res = await fetch(`${format === "story" ? link.storyImagePath : link.wideImagePath}&download=1`);
       if (!res.ok || !res.headers.get("content-type")?.startsWith("image/png")) throw new Error("bad response");
@@ -91,8 +131,10 @@ export function ShareDialog({ card, title, onClose }: { card: CardId; title: str
       a.remove();
       URL.revokeObjectURL(href);
       setNotice({ ok: true, text: "Download started." });
+      return true;
     } catch {
       setNotice({ ok: false, text: "Couldn't download the image. Try again." });
+      return false;
     }
   };
 
@@ -162,8 +204,16 @@ export function ShareDialog({ card, title, onClose }: { card: CardId; title: str
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button type="button" onClick={postToX} disabled={!canShare} className={`${button}`}>
-          Share on X
+          Share link on X
         </button>
+        <button type="button" onClick={() => void saveAndPostToX()} disabled={!canShare} className={`${button}`}>
+          Save image + open X
+        </button>
+        {file && (
+          <button type="button" onClick={() => void nativeShare()} disabled={!canShare} className={`${button} col-span-2`}>
+            Share image…
+          </button>
+        )}
         <button type="button" onClick={copy} disabled={!canShare} className={`${button}`}>
           Copy link
         </button>
@@ -174,6 +224,9 @@ export function ShareDialog({ card, title, onClose }: { card: CardId; title: str
           Download wide image
         </button>
       </div>
+      <p className="mt-2 text-base text-ph/80">
+        X&apos;s composer can&apos;t attach an image for us. “Share link on X” previews this card&apos;s image from the link; “Save image + open X” saves the PNG so you can attach it yourself.
+      </p>
       {link?.sensitive && !ack && <p className="mt-2 text-base text-amber">Tick the box above to enable sharing.</p>}
 
       {link && (

@@ -1,14 +1,16 @@
 "use client";
 
 import { animate, motion, useMotionValue, useReducedMotion } from "framer-motion";
-import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ACCESS_GRANTED, CONNECTING, grantHold, grantReducer } from "@/lib/retro/cassette";
 import { TAP_SLOP_PX, centeredOffset, clampOffset, containsPoint, type Box } from "@/lib/retro/drag";
-import { BOOT_LABEL, BOOT_LINES, BOOT_TITLE, LOGO_RADIUS, LOGO_VIEWBOX, bootSchedule, logoRows, logoSchedule } from "@/lib/retro/logo";
+import { CASSETTE_REST, PET_ART, PET_FOCUS, PET_SCREEN } from "@/lib/retro/art";
+import { coverPlacement, restingBox } from "@/lib/retro/cover";
+import { BOOT_LABEL, LOGO_RADIUS, LOGO_VIEWBOX, logoRows, logoSchedule } from "@/lib/retro/logo";
 import { Cassette } from "./Cassette";
 import { PetComputer, type PetState } from "./PetComputer";
-import { SoundToggle, useSound } from "./Sound";
+import { useSound } from "./Sound";
 
 /** Above everything on the page, whatever stacking context or clipping box it would otherwise live in. */
 const TOP_LAYER = 2147483647;
@@ -18,8 +20,9 @@ const toBox = (r: DOMRect): Box => ({ left: r.left, top: r.top, width: r.width, 
 const LOGO_ROWS = logoRows();
 
 /**
- * The landing screen: a PET-style computer whose screen boots with the Linear
- * mark, and a cassette tape floating beside it. Drag the cassette onto the
+ * The landing screen: the PET photograph fills the whole viewport, its screen
+ * shows only the Linear mark and a blinking cursor, and a cassette tape lies on
+ * the notepad at the lower right. Drag the cassette onto the
  * computer (the screen glows while it is over it) and let go: the screen says
  * ACCESS GRANTED and, a moment later, this tab goes to Linear's real read-only
  * authorization page (`startPath`). The cassette is also a single focusable
@@ -28,9 +31,10 @@ const LOGO_ROWS = logoRows();
  *
  * The cassette is drawn in a portal on `document.body` at the highest z-index, so
  * it is above the computer and every clipping or stacking context while it is
- * dragged. It is positioned from its measured resting spot, and the drop target
- * (the computer) is measured at the moment of every move and release, so hit
- * testing follows the responsive layout. A drop elsewhere springs it back. The
+ * dragged. Its resting spot is the notepad's place on the picture, mapped through
+ * the same cover crop as the screen overlay (`lib/retro/cover.ts`) and kept whole
+ * inside the viewport; the drop target (the computer) is measured at the moment of
+ * every move and release, so hit testing follows the crop. A drop elsewhere springs it back. The
  * grant can only happen once, so a second drop, tap or key press never starts a
  * second redirect.
  */
@@ -43,8 +47,7 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
   const launched = useRef(false);
 
   const petRef = useRef<HTMLDivElement>(null);
-  const restRef = useRef<HTMLDivElement>(null);
-  const [rest, setRest] = useState<Box | null>(null);
+  const [view, setView] = useState<{ width: number; height: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const press = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
   const suppressClick = useRef(false);
@@ -59,25 +62,17 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
   }, []);
   useEffect(() => clearTimers, [clearTimers]);
 
-  // Measure where the cassette rests, and keep it current as the layout moves.
-  const measure = useCallback(() => {
-    if (restRef.current) setRest(toBox(restRef.current.getBoundingClientRect()));
-  }, []);
+  // The picture covers the viewport; follow its size (and the mobile browser bars) to place the overlay and the tape.
   useLayoutEffect(() => {
-    measure();
-    const el = restRef.current;
-    const ro = el && typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
-    if (el) ro?.observe(el);
-    window.addEventListener("resize", measure);
-    window.addEventListener("scroll", measure, true);
-    return () => {
-      ro?.disconnect();
-      window.removeEventListener("resize", measure);
-      window.removeEventListener("scroll", measure, true);
-    };
-  }, [measure]);
+    const read = () => setView({ width: window.innerWidth, height: window.innerHeight });
+    read();
+    window.addEventListener("resize", read);
+    return () => window.removeEventListener("resize", read);
+  }, []);
+  const placement = useMemo(() => (view ? coverPlacement(view, PET_ART, PET_FOCUS, PET_SCREEN) : null), [view]);
+  const rest = useMemo<Box | null>(() => (view && placement ? restingBox(placement, CASSETTE_REST, view) : null), [view, placement]);
 
-  // The boot animation is skipped by any key press or touch. (Reduced motion skips it in CSS.)
+  // The mark's scanline sweep is skipped by any key press or touch. (Reduced motion skips it in CSS.)
   useEffect(() => {
     if (bootSkipped) return;
     const skip = () => setBootSkipped(true);
@@ -198,6 +193,7 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
   const petState: PetState = phase === "over" ? "hover" : phase === "granted" || phase === "launching" ? "granted" : "idle";
   const accepted = petState === "granted";
 
+  // Spoken only: the page shows no instructions.
   const status =
     phase === "over"
       ? "Release the cassette to sign in."
@@ -205,15 +201,11 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
         ? `${ACCESS_GRANTED}. ${CONNECTING}`
         : "Drag the cassette onto the computer, or press Enter or Space on it, to sign in with Linear.";
 
-  // Text lines: the title, then each boot line.
-  const rows = BOOT_LINES.length + 1;
-  const delays = bootSchedule(rows, false);
-  const lineDelay = (i: number): CSSProperties => ({ animationDelay: `${delays[Math.min(i, rows - 1)]}ms` });
   const bandDelays = logoSchedule(false);
 
   return (
-    <div className="landing-body">
-      <PetComputer state={petState} viewRef={petRef}>
+    <div className="contents">
+      <PetComputer state={petState} viewRef={petRef} placement={placement}>
         {accepted ? (
           // One slow glow, then steady: never a strobe.
           <div aria-hidden className="flex h-full flex-col items-center justify-center whitespace-nowrap text-center">
@@ -221,8 +213,8 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
             <p className="mt-[0.6em] text-[0.62em] leading-none opacity-80">{CONNECTING}</p>
           </div>
         ) : (
-          // The boot screen: the mark beside the title. The art is decorative; the group carries the name once.
-          <div role="group" aria-label={BOOT_LABEL} className={`boot flex items-center gap-[0.7em] whitespace-nowrap ${bootSkipped ? "boot-skip" : ""}`} onClick={() => setBootSkipped(true)}>
+          // The idle screen: only the mark, centred, and the cursor at the bottom right. The art is decorative; the group carries the name once.
+          <div role="group" aria-label={BOOT_LABEL} className={`boot pet-idle ${bootSkipped ? "boot-skip" : ""}`} onClick={() => setBootSkipped(true)}>
             <svg aria-hidden focusable="false" viewBox={`0 0 ${LOGO_VIEWBOX} ${LOGO_VIEWBOX}`} className="boot-logo shrink-0 text-ph">
               <defs>
                 <clipPath id="boot-logo-clip">
@@ -239,36 +231,13 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
                 ))}
               </g>
             </svg>
-            <div className="min-w-0">
-              <p className="boot-line normal-case" style={lineDelay(0)}>
-                {BOOT_TITLE}
-              </p>
-              {BOOT_LINES.map((line, i) => (
-                <p key={i} className="boot-line whitespace-pre" style={lineDelay(i + 1)}>
-                  {line === "" ? " " : line}
-                </p>
-              ))}
-              <p aria-hidden>
-                <span className="cursor-block" />
-              </p>
-            </div>
+            <span aria-hidden className="cursor-block" />
           </div>
         )}
       </PetComputer>
       <p className="sr-only" role="status">
         {status}
       </p>
-
-      <div className="dock">
-        <div className="dock-stage">
-          {/* Where the cassette rests: measured, never hard-coded in px. */}
-          <div ref={restRef} aria-hidden className="cassette-rest" />
-        </div>
-        <p className="landing-hint text-lg leading-snug text-ph/80">
-          <span className="text-amber">&gt;</span> Drag the cassette onto the computer, or tap it.
-        </p>
-        <SoundToggle variant="quiet" />
-      </div>
 
       {rest &&
         createPortal(

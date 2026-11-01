@@ -62,22 +62,10 @@ export function logoRows(): LogoRow[] {
 /** Whether a point (viewBox units) is inside the circle. */
 export const insideLogo = (x: number, y: number) => (x - CENTER) ** 2 + (y - CENTER) ** 2 <= LOGO_RADIUS ** 2;
 
-/** Shown exactly like this (not forced to capitals) beside the mark. */
-export const BOOT_TITLE = "Linear wrapped";
-
-/** Remaining boot lines, in order, under the title. Short enough for the PET screen's columns. */
-export const BOOT_LINES = ["2026", "", "READY.", "LOAD TAPE"] as const;
-
-/** Spoken name of the whole boot screen; the art itself is hidden from assistive tech. */
+/** Spoken name of the idle screen; the art itself is hidden from assistive tech and shows no text. */
 export const BOOT_LABEL = "Linear wrapped";
 
 const BASE_MS = 120;
-const STEP_MS = 80;
-
-/** Delay in ms before each of `count` lines appears. `instant` (reduced motion, skipped) shows them all at once. */
-export function bootSchedule(count: number, instant: boolean): number[] {
-  return Array.from({ length: count }, (_, i) => (instant ? 0 : BASE_MS + i * STEP_MS));
-}
 
 const LOGO_STEP_MS = 40;
 
@@ -85,6 +73,3 @@ const LOGO_STEP_MS = 40;
 export function logoSchedule(instant: boolean): number[] {
   return Array.from({ length: LOGO_BANDS }, (_, i) => (instant ? 0 : BASE_MS + i * LOGO_STEP_MS));
 }
-
-/** When the last of `count` lines has appeared. */
-export const bootDuration = (count: number, instant: boolean) => Math.max(0, ...bootSchedule(count, instant));

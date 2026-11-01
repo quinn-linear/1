@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, type CSSProperties } from "react";
+import { ShareIcon } from "@/components/icons";
 import { plural, type Recap } from "@/lib/recap";
 import { ARCHETYPE_COPY } from "@/lib/stats/archetype";
 import { ARCHETYPE_ART, ART_SIZE } from "@/lib/share/archetypeArt";
@@ -25,9 +26,10 @@ const FONT_BOOST = 1.28;
  * The final card: the year-end report on dot-matrix tractor-feed paper. Same layout as
  * the share image (`lib/share/printout.ts`). This is the viewer's own screen, so it also
  * prints their name; the public image never does. It feeds out line by line when it
- * appears (instant under reduced motion).
+ * appears (instant under reduced motion). `onShare` opens the same share dialog as the
+ * dock: its button shows on hover and keyboard focus, and stays visible on touch screens.
  */
-export function Printout({ recap }: { recap: Recap }) {
+export function Printout({ recap, onShare }: { recap: Recap; onShare?: () => void }) {
   const d = printoutData(recap);
   const art = ARCHETYPE_ART[d.archetype];
   const copy = ARCHETYPE_COPY[d.archetype];
@@ -53,7 +55,7 @@ export function Printout({ recap }: { recap: Recap }) {
   );
 
   return (
-    <div className="print-wrap" style={{ width: "min(100%, 26rem, 58dvh)" }}>
+    <div className="print-wrap relative" style={{ width: "min(100%, 26rem, 58dvh)" }}>
       <div
         data-print
         role="group"
@@ -140,6 +142,12 @@ export function Printout({ recap }: { recap: Recap }) {
           <div aria-hidden className="pointer-events-none absolute inset-x-0" style={{ top: `${37}%`, height: cq(40), backgroundImage: "linear-gradient(180deg, transparent, rgb(60 40 10 / 0.07), transparent)" }} />
         </div>
       </div>
+      {onShare && (
+        <button type="button" onClick={onShare} aria-haspopup="dialog" aria-label="Share this report" className="print-share">
+          <ShareIcon />
+          <span>Share</span>
+        </button>
+      )}
     </div>
   );
 }

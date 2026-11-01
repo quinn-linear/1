@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { CARD_IDS } from "../recap.ts";
 import { CARD_ACCENTS } from "../share/theme.ts";
 import { ACCESS_GRANTED, CONNECTING, GRANT_HOLD_MS, GRANT_HOLD_REDUCED_MS, grantHold, grantReducer, type GrantPhase } from "./cassette.ts";
-import { BOOT_LABEL, BOOT_LINES, BOOT_TITLE, LOGO_BANDS, LOGO_RADIUS, LOGO_VIEWBOX, bootDuration, bootSchedule, insideLogo, logoRows, logoSchedule } from "./logo.ts";
+import { BOOT_LABEL, LOGO_BANDS, LOGO_RADIUS, LOGO_VIEWBOX, insideLogo, logoRows, logoSchedule } from "./logo.ts";
 import { DIM_TEXT_ALPHA, PALETTE, contrastRatio, over } from "./palette.ts";
 import { MASTER_GAIN, MAX_EVENTS, MAX_SOUND_SECONDS, MIN_GAP_MS, allowSound, initialSoundEnabled, planSound, soundLength, type SoundName } from "./sound.ts";
 
@@ -100,7 +100,7 @@ test("every card accent is the lavender or amber accent", () => {
 });
 
 test("the supplied halftone PET photo matches the numbers the terminal overlay is pinned with", async () => {
-  const { PET_ART, PET_SCREEN, PET_VIEWS, CASSETTE_ART } = await import("./art.ts");
+  const { PET_ART, PET_SCREEN, CASSETTE_ART } = await import("./art.ts");
   const sharp = (await import("sharp")).default;
   const file = new URL("../../../public/retro/pet.webp", import.meta.url);
   const meta = await sharp(file.pathname).metadata();
@@ -116,9 +116,6 @@ test("the supplied halftone PET photo matches the numbers the terminal overlay i
   assert.ok(dark / total > 0.97, `glass is dark (${dark}/${total})`);
   assert.ok(px(s.x - 40, s.y + s.h / 2) > 100 && px(s.x + s.w + 40, s.y + s.h / 2) > 100, "the bezel sits outside the left and right edges");
   assert.ok(px(s.x + s.w / 2, s.y - 14) > 100 && px(s.x + s.w / 2, s.y + s.h + 14) > 100, "and above and below");
-  // The phone crop keeps the whole screen in view.
-  const v = PET_VIEWS.tight;
-  assert.ok(v.x <= PET_SCREEN.x && v.y <= PET_SCREEN.y && v.x + v.w >= PET_SCREEN.x + PET_SCREEN.w && v.y + v.h >= PET_SCREEN.y + PET_SCREEN.h);
   // The cassette keeps its own aspect ratio and a transparent background.
   const cm = await sharp(new URL("../../../public/retro/cassette.webp", import.meta.url).pathname).metadata();
   assert.equal(cm.width, CASSETTE_ART.width);
@@ -196,18 +193,6 @@ test("the mark reveals one band at a time from the top; reduced motion or a skip
   assert.ok(logoSchedule(true).every((d) => d === 0));
 });
 
-test("boot text uses the exact phrase, and every boot line fits the screen columns", () => {
-  assert.equal(BOOT_TITLE, "Linear wrapped");
+test("the idle screen's spoken name is the exact phrase (it shows no text)", () => {
   assert.equal(BOOT_LABEL, "Linear wrapped");
-  for (const line of [BOOT_TITLE, ...BOOT_LINES]) assert.ok(line.length <= 14, line);
-});
-
-test("boot lines reveal one after another, quickly; reduced motion or a skip shows them at once", () => {
-  const count = BOOT_LINES.length + 1;
-  const delays = bootSchedule(count, false);
-  assert.equal(delays.length, count);
-  for (let i = 1; i < count; i++) assert.ok(delays[i] > delays[i - 1], "line by line");
-  assert.ok(bootDuration(count, false) <= 1000, "the whole boot is under a second");
-  assert.deepEqual(bootSchedule(count, true), new Array(count).fill(0));
-  assert.equal(bootDuration(count, true), 0);
 });

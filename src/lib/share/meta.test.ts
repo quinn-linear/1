@@ -40,3 +40,15 @@ test("malformed, forged, oversized and unconfigured tokens get generic noindex m
   assert.deepEqual(UNAVAILABLE_METADATA.robots, { index: false, follow: false });
   assert.equal(JSON.stringify(UNAVAILABLE_METADATA).includes("http"), false);
 });
+
+test("the preview image is an absolute, versioned, wide PNG that X can fetch without any credentials", () => {
+  const m = shareMetadata(token, SECRET, ORIGIN);
+  const og = m.openGraph as { images: { url: string; width: number; height: number; type: string }[] };
+  const url = new URL(og.images[0].url);
+  assert.equal(url.origin, ORIGIN, "absolute, on the configured origin");
+  assert.equal(url.searchParams.get("r"), IMAGE_VERSION, "versioned, so a redesign is not stuck in X's cache");
+  assert.equal(url.searchParams.get("f"), "og");
+  assert.equal(url.username + url.password, "");
+  assert.equal(og.images[0].type, "image/png");
+  assert.equal(og.images[0].width / og.images[0].height, 1200 / 630);
+});

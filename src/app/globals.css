@@ -259,55 +259,42 @@ input.term-input {
 }
 
 /*
- * The landing photo and the terminal pinned to its CRT. `.pet-stage` is a size
- * container filling whatever room the layout gives it; `.pet-view` is the
- * largest box of the picture's aspect ratio that fits that room in BOTH
- * directions, so the picture can never push the page taller than the viewport.
- * `--w*` are fractions of the whole picture; the crop (`--vx..--vh`) switches
- * to a tight monitor view on narrow screens. Everything below derives from
- * those, so the overlay can't drift.
+ * The landing scene: the photo covers the whole viewport and the terminal is pinned to
+ * its CRT. `.pet-view` is the picture's own box, placed by script (`lib/retro/cover.ts`)
+ * with this centred cover as the fallback before it is measured, so it fills the screen
+ * edge to edge, scaled uniformly and cropped, never stretched. `--s*`/`--b*` are
+ * fractions of the whole picture; everything on it is a percentage of this box, so the
+ * overlay can't drift from the glass at any crop. `--fs` follows the picture's width.
  */
-.pet-stage {
-  --vx: var(--wide-x);
-  --vy: var(--wide-y);
-  --vw: var(--wide-w);
-  --vh: var(--wide-h);
-  container-type: size;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  min-width: 0;
-}
-
 .pet-view {
-  --ar: calc(var(--vw) * var(--art-ar) / var(--vh));
+  --aw: max(100vw, calc(100dvh * var(--art-ar)));
   --fs: 2.55cqw;
   container-type: inline-size;
-  aspect-ratio: var(--ar);
-  width: min(100cqw, calc(100cqh * var(--ar)));
-  flex: none;
+  aspect-ratio: var(--art-ar);
+  width: var(--aw);
+  left: calc((100vw - var(--aw)) / 2);
+  top: calc((100dvh - var(--aw) / var(--art-ar)) / 2);
 }
 
 .pet-img {
-  width: calc(100% / var(--vw));
-  left: calc(var(--vx) / var(--vw) * -100%);
-  top: calc(var(--vy) / var(--vh) * -100%);
+  width: 100%;
   height: auto;
+  left: 0;
+  top: 0;
 }
 
 .pet-screen-zone {
-  left: calc((var(--sx) - var(--vx)) / var(--vw) * 100%);
-  top: calc((var(--sy) - var(--vy)) / var(--vh) * 100%);
-  width: calc(var(--sw) / var(--vw) * 100%);
-  height: calc(var(--sh) / var(--vh) * 100%);
+  left: calc(var(--sx) * 100%);
+  top: calc(var(--sy) * 100%);
+  width: calc(var(--sw) * 100%);
+  height: calc(var(--sh) * 100%);
 }
 
 .pet-beam-zone {
-  left: calc((var(--bx) - var(--vx)) / var(--vw) * 100%);
-  top: calc((var(--by) - var(--vy)) / var(--vh) * 100%);
-  width: calc(var(--bw) / var(--vw) * 100%);
-  height: calc(var(--bh) / var(--vh) * 100%);
+  left: calc(var(--bx) * 100%);
+  top: calc(var(--by) * 100%);
+  width: calc(var(--bw) * 100%);
+  height: calc(var(--bh) * 100%);
 }
 
 .pet-terminal {
@@ -316,57 +303,70 @@ input.term-input {
   padding: 6% 8%;
 }
 
-/* Narrow (or short and narrow) screens crop in on the monitor. */
-@media (max-width: 639px) {
-  .pet-stage {
-    --vx: var(--tight-x);
-    --vy: var(--tight-y);
-    --vw: var(--tight-w);
-    --vh: var(--tight-h);
-  }
-  .pet-view {
-    --fs: 5.6cqw;
-  }
+/* The idle screen: the mark centred on the glass, a blinking block cursor at its bottom right. */
+.pet-idle {
+  position: absolute;
+  inset: 0;
 }
 
-/*
- * Landing layout: one screen, no page scroll. Portrait/narrow stacks the
- * computer over the dock (the cassette and sound toggle); landscape puts them side by
- * side. Both cells are `minmax(0, ...)` so the picture and the drive are sized
- * from what is left after the header, never the other way round.
- */
-.landing-body {
-  display: grid;
-  flex: 1 1 0;
-  min-height: 0;
-  gap: 0.5rem;
-  grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.3fr);
-  grid-template-columns: minmax(0, 1fr);
+.pet-idle .boot-logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
 }
 
-.dock {
-  display: flex;
-  min-height: 0;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
+.pet-idle .cursor-block {
+  position: absolute;
+  right: 9%;
+  bottom: 9%;
+  width: 0.6em;
+  height: 1em;
 }
 
-.dock-stage {
-  container-type: size;
-  display: flex;
-  min-height: 0;
-  width: 100%;
-  flex: 1 1 0;
-  align-items: center;
-  justify-content: center;
+/* The scene is the whole screen: no page scroll, nothing but the picture and the tape. */
+.scene {
+  position: relative;
+  height: 100dvh;
+  /* `clip`, not `hidden`: the cropped part of the picture can't be scrolled to, even by focus or script. */
+  overflow: clip;
+  background: #0b0a08;
 }
 
-/* Where the cassette rests: as big as the dock allows, never wider than a comfortable size. */
-.cassette-rest {
-  flex: none;
-  aspect-ratio: 840 / 457;
-  width: min(100cqw, calc(100cqh * 840 / 457), 21rem);
+/* Skip-link style fallbacks: out of sight until focused, so the plain sign-in link stays reachable by keyboard. */
+.landing-skip {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 2147483000;
+  padding: 0.35rem 0.75rem;
+  background: #000;
+  color: var(--ph);
+  font-size: 1.2rem;
+  letter-spacing: 0.06em;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  transform: translateY(-300%);
+}
+
+.landing-skip:focus-visible {
+  transform: none;
+  outline: 2px solid var(--color-lav);
+  outline-offset: 2px;
+}
+
+/* A sign-in problem: small, in a corner, over the picture. */
+.landing-error {
+  position: absolute;
+  right: 0.75rem;
+  top: 0.75rem;
+  z-index: 2147483000;
+  max-width: min(24rem, calc(100vw - 1.5rem));
+  padding: 0.25rem 0.75rem;
+  background: rgb(0 0 0 / 0.78);
+  color: var(--a2);
+  font-size: 1.15rem;
+  line-height: 1.15;
 }
 
 /* The cassette hovers, very slightly; still while held or accepted, and under reduced motion. */
@@ -407,74 +407,6 @@ input.term-input {
 
 @media (prefers-reduced-motion: reduce) {
   .cassette-float, .access-granted { animation: none; }
-}
-
-.landing-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.75rem;
-  padding: 0 0.25rem;
-  color: color-mix(in srgb, var(--ph) 75%, transparent);
-  font-size: 1.2rem;
-  letter-spacing: 0.06em;
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
-}
-
-.landing-link:hover {
-  color: var(--ph);
-}
-
-.landing-link:focus-visible {
-  outline: 2px solid var(--color-lav);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* A quiet text toggle, not a keycap: sound is optional and stays out of the way. */
-.quiet-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-height: 2.75rem;
-  padding: 0 0.75rem;
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  color: color-mix(in srgb, var(--ph) 65%, transparent);
-  font-size: 1.1rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.quiet-toggle:hover {
-  color: var(--ph);
-}
-
-.quiet-toggle:focus-visible {
-  outline: 2px solid var(--color-lav);
-  outline-offset: 2px;
-}
-
-@media (min-width: 700px) and (orientation: landscape) {
-  .landing-body {
-    grid-template-rows: minmax(0, 1fr);
-    grid-template-columns: minmax(0, 1fr) clamp(15rem, 30vw, 25rem);
-    align-items: stretch;
-  }
-}
-
-/* Short screens drop the supporting copy first; the title, computer, drive, keys and sign-in link stay. */
-@media (max-height: 640px), (max-width: 639px) {
-  .landing-tagline,
-  .landing-hint {
-    display: none;
-  }
-  .keycap {
-    min-height: 2.25rem;
-    padding-block: 0.15rem;
-  }
 }
 
 /* The boot screen on the PET's CRT: the mark as an SVG (square, so the circle stays round), revealed one scanline band at a time. */
@@ -560,15 +492,6 @@ input.term-input {
 .reveal-stack > :nth-child(11) { --i: 10; }
 .reveal-stack > :nth-child(12) { --i: 11; }
 .reveal-stack > :nth-child(n + 13) { --i: 12; }
-
-@media (max-width: 639px) {
-  .landing-link {
-    font-size: 1.05rem;
-  }
-  .landing-hint {
-    font-size: 1.2rem;
-  }
-}
 
 /* Two-column flow, chosen by `Fit` on short, wide screens: blocks stay whole and the columns balance. */
 [data-cols="2"] .reveal-stack,
@@ -791,4 +714,118 @@ input.term-input {
 
 @media (prefers-reduced-motion: reduce) {
   .print-feed { animation: none; }
+}
+
+/* ---------- Recap: halftone texture, safe-area controls ---------- */
+
+/* The tube is the whole viewport, so keep its controls out of notches and rounded corners. */
+.story-crt {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+}
+
+/*
+ * A halftone print texture to match the opening picture: dots that start at nothing in the
+ * middle (where the card's text is) and grow toward the edges, in the card's accent, plus
+ * a few larger dots tucked into the bottom corners. Static, behind the content, no filter.
+ */
+.story-halftone {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at center, color-mix(in srgb, var(--a1, var(--ph)) 55%, transparent) 0 1.1px, transparent 1.7px),
+    radial-gradient(circle at center, rgb(0 0 0 / 0.55) 0 1.6px, transparent 2.2px);
+  background-size: 7px 7px, 7px 7px;
+  background-position: 0 0, 3.5px 3.5px;
+  opacity: 0.55;
+  -webkit-mask-image: radial-gradient(ellipse 75% 70% at 50% 45%, transparent 55%, #000 100%);
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 45%, transparent 55%, #000 100%);
+}
+
+.story-exit {
+  /* `.dock-btn` sets `relative` later than Tailwind's utilities: say it here, or the button falls into the page flow and is cropped. */
+  position: absolute;
+  right: calc(0.5rem + env(safe-area-inset-right));
+  top: calc(0.5rem + env(safe-area-inset-top));
+}
+
+
+.story-signout {
+  min-height: 2.75rem;
+  padding-inline: 0.5rem;
+  color: color-mix(in srgb, var(--ph) 70%, transparent);
+  font-size: 0.9em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  cursor: pointer;
+}
+
+.story-signout:hover {
+  color: var(--ph);
+}
+
+.story-signout:focus-visible {
+  outline: 2px solid var(--color-lav);
+  outline-offset: -2px;
+}
+
+@media (max-height: 520px) {
+  .story-signout {
+    min-height: 2.25rem;
+  }
+}
+
+/* Share on the printed report: shown on hover and keyboard focus, always on touch screens (which have no hover). */
+.print-share {
+  position: absolute;
+  /* Straddles the paper's top edge, so it never hides the printed header. */
+  right: 4%;
+  top: 0;
+  translate: 0 -62%;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0 0.7rem;
+  justify-content: center;
+  border: 2px solid var(--ph);
+  background: rgb(10 9 18 / 0.88);
+  color: var(--ph);
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.print-wrap:hover .print-share,
+.print-wrap:focus-within .print-share,
+.print-share:focus-visible {
+  opacity: 1;
+}
+
+.print-share:focus-visible {
+  outline: 2px solid var(--color-lav);
+  outline-offset: 2px;
+}
+
+.print-share:hover {
+  background: var(--ph);
+  color: #000;
+}
+
+@media (hover: none) {
+  .print-share {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .print-share { transition: none; }
 }

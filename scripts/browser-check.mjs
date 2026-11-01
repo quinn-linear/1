@@ -2,7 +2,7 @@
 /**
  * Real-browser checks against a running server (see README, "Browser checks").
  *   PREVIEW_FIXTURES=1 npm run dev   (or `npm start` after a build)
- *   CHROME=/path/to/chrome BASE=http://localhost:3000 OUT=./shots node scripts/browser-check.mjs [landing|boot|drag|story|print|dock|fullscreen|art|all]
+ *   CHROME=/path/to/chrome BASE=http://localhost:3000 OUT=./shots node scripts/browser-check.mjs [landing|boot|dust|drag|story|print|dock|fullscreen|art|recapui|all]
  * Drives headless Chrome over the DevTools protocol (no extra dependencies) and
  * fails (exit 1) if the landing scrolls or has button clutter, the dragged
  * cassette is ever covered or a drop does the wrong thing (grant, miss, keyboard,
@@ -44,7 +44,7 @@ const check = (ok, msg) => {
 };
 
 const dir = mkdtempSync(join(tmpdir(), "chrome-"));
-const chrome = spawn(CHROME, ["--headless=new", "--no-sandbox", "--disable-gpu", "--no-proxy-server", `--remote-debugging-port=${PORT}`, `--user-data-dir=${dir}`, "about:blank"], { stdio: "ignore" });
+const chrome = spawn(CHROME, [...(CHROME.includes("headless-shell") ? [] : ["--headless=new"]), "--no-sandbox", "--disable-gpu", "--no-proxy-server", `--remote-debugging-port=${PORT}`, `--user-data-dir=${dir}`, "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function connect() {
@@ -115,6 +115,9 @@ const mouse = (type, x, y, extra = {}) => send("Input.dispatchMouseEvent", { typ
 
 const authRequests = () => requests.filter((u) => u.includes("/api/auth/linear") && !u.includes("callback")).length;
 
+const innerWidthOf = (n) => VIEWPORTS[n][0];
+const innerHeightOf = (n) => VIEWPORTS[n][1];
+
 async function landing() {
   for (const name of Object.keys(VIEWPORTS)) {
     await viewport(name);
@@ -125,21 +128,42 @@ async function landing() {
     }
     const r = await evaluate(`(() => {
       const de = document.documentElement, main = document.querySelector("main");
-      const vis = (el) => { if (!el) return false; const b = el.getBoundingClientRect(); return b.width > 0 && b.height > 0 && b.left >= -1 && b.top >= -1 && b.right <= innerWidth + 1 && b.bottom <= innerHeight + 1; };
-      const buttons = [...document.querySelectorAll("button")].filter((b) => !b.hasAttribute("data-cassette") && b.getBoundingClientRect().width > 0);
-      const text = document.body.innerText;
+      const inView = (b) => b.width > 0 && b.height > 0 && b.left >= -1 && b.top >= -1 && b.right <= innerWidth + 1 && b.bottom <= innerHeight + 1;
+      const pv = document.querySelector(".pet-view").getBoundingClientRect(), img = document.querySelector(".pet-img").getBoundingClientRect();
+      const c = document.querySelector("[data-cassette]").getBoundingClientRect(), crt = document.querySelector(".pet-screen-zone.crt").getBoundingClientRect();
+      const logo = document.querySelector(".boot-logo").getBoundingClientRect(), cur = document.querySelector(".cursor-block").getBoundingClientRect();
+      const pad = { l: pv.left + pv.width * 1280 / 1672, t: pv.top + pv.height * 655 / 941, w: pv.width * 320 / 1672, h: pv.height * 220 / 941 };
+      // Text anybody can see: not the 1px screen-reader-only copy, not hidden skip links.
+      const seen = [];
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let n; (n = walker.nextNode()); ) {
+        const t = n.textContent.trim(), el = n.parentElement;
+        if (!t || ["SCRIPT", "STYLE", "NOSCRIPT"].includes(el.tagName)) continue;
+        const b = el.getBoundingClientRect(), cs = getComputedStyle(el);
+        if (b.width <= 1 || b.height <= 1 || cs.visibility === "hidden" || b.bottom < 0 || b.right < 0 || b.top > innerHeight || b.left > innerWidth) continue;
+        seen.push(t);
+      }
       return {
-        pageScroll: de.scrollHeight - innerHeight, mainScroll: main.scrollHeight - main.clientHeight,
-        h1: vis(document.querySelector("h1")), pet: vis(document.querySelector(".pet-view")), cassette: vis(document.querySelector("[data-cassette]")),
-        signin: vis([...document.querySelectorAll("a")].find((a) => /sign in without the cassette/i.test(a.textContent))),
-        otherButtons: buttons.map((b) => b.textContent.trim()), old: /insert floppy|eject|return|drive 8|floppy/i.test(text),
-        overlapsPet: (() => { const c = document.querySelector("[data-cassette]").getBoundingClientRect(), p = document.querySelector(".pet-view").getBoundingClientRect(); return c.left < p.right && p.left < c.right && c.top < p.bottom && p.top < c.bottom; })(),
+        pageScroll: de.scrollHeight - innerHeight, mainScroll: (main.scrollTop = 50, main.scrollLeft = 50, main.scrollTop + main.scrollLeft), bodyX: de.scrollWidth - innerWidth,
+        covers: pv.left <= 1 && pv.top <= 1 && pv.right >= innerWidth - 1 && pv.bottom >= innerHeight - 1, ratio: +(img.width / img.height).toFixed(3),
+        cassetteInView: inView(c), crtInView: inView(crt), contentInView: inView(logo) && inView(cur), seen,
+        logoDx: Math.round(logo.left + logo.width / 2 - (crt.left + crt.width / 2)), logoDy: Math.round(logo.top + logo.height / 2 - (crt.top + crt.height / 2)),
+        cursorBR: cur.left > crt.left + crt.width * 0.7 && cur.top > crt.top + crt.height * 0.7 && cur.right <= crt.right && cur.bottom <= crt.bottom,
+        onNotepad: c.left + c.width / 2 >= pad.l && c.left + c.width / 2 <= pad.l + pad.w && c.top + c.height / 2 >= pad.t && c.top + c.height / 2 <= pad.t + pad.h,
+        tape: [Math.round(c.left), Math.round(c.top), Math.round(c.width), Math.round(c.height)], buttons: [...document.querySelectorAll("button")].filter((b) => !b.hasAttribute("data-cassette") && b.getBoundingClientRect().width > 0).length,
+        skipLink: !!document.querySelector("a.landing-skip"), terminalText: document.querySelector(".pet-terminal").innerText.trim(),
       };
     })()`);
-    check(r.pageScroll <= 0 && r.mainScroll <= 0, `landing ${name}: no scrolling (page ${r.pageScroll}, main ${r.mainScroll})`);
-    check(r.h1 && r.pet && r.cassette && r.signin, `landing ${name}: title, computer, cassette and the quiet sign-in link all inside the viewport ${JSON.stringify(r)}`);
-    check(r.otherButtons.length <= 1 && !r.old, `landing ${name}: no row of helper buttons and no floppy/drive/eject/return left (${JSON.stringify(r.otherButtons)})`);
-    check(!r.overlapsPet, `landing ${name}: the resting cassette does not cover the computer`);
+    const portrait = innerWidthOf(name) < innerHeightOf(name);
+    check(r.pageScroll <= 0 && r.mainScroll <= 0 && r.bodyX <= 0, `landing ${name}: no scrolling, and the cropped picture can't be scrolled to (page ${r.pageScroll}, main ${r.mainScroll}, x ${r.bodyX})`);
+    check(r.covers && Math.abs(r.ratio - 1672 / 941) < 0.01, `landing ${name}: the picture fills the whole viewport at its own aspect ratio (${r.ratio})`);
+    // Upright phones are narrower than the glass itself at cover scale: its rim is cropped, the mark and cursor are not.
+    check((portrait ? r.contentInView : r.crtInView) && r.cassetteInView, `landing ${name}: the ${portrait ? "mark, cursor" : "screen"} and the cassette are fully on screen (tape ${r.tape})`);
+    check(r.seen.length === 0 && r.terminalText === "", `landing ${name}: no visible text at all: no title, tips, or boot lines (${JSON.stringify(r.seen)})`);
+    check(Math.abs(r.logoDx) <= 2 && Math.abs(r.logoDy) <= 2 && r.cursorBR, `landing ${name}: the mark is centred on the glass (${r.logoDx},${r.logoDy}) and the cursor sits at its bottom right`);
+    check(r.buttons === 0 && r.skipLink, `landing ${name}: no other buttons, and the sign-in fallback link exists`);
+    if (!portrait) check(r.onNotepad, `landing ${name}: the cassette rests on the notepad`);
+    else console.log(`note: landing ${name}: upright phone, the notepad is cropped out; the tape is pulled inside the screen at ${r.tape}`);
     await shot(`landing-${name}`);
   }
 }
@@ -150,7 +174,7 @@ async function dust() {
     await go("/");
     await sleep(800);
     const r = await evaluate(`(() => {
-      const c = document.querySelector("[data-dust]"), p = document.querySelector(".pet-view").getBoundingClientRect(), b = c.getBoundingClientRect();
+      const c = document.querySelector("[data-dust]"), p = { left: 0, top: 0, right: innerWidth, bottom: innerHeight }, b = c.getBoundingClientRect();
       const z = document.querySelector(".pet-screen-zone.crt").getBoundingClientRect();
       const cs = getComputedStyle(c);
       const hits = [[.2,.2],[.5,.5],[.8,.8]].map(([a, d]) => document.elementFromPoint(b.left + b.width * a, b.top + b.height * d)).filter(Boolean);
@@ -201,12 +225,11 @@ async function boot() {
     const g = document.querySelector('[role=group][aria-label="Linear wrapped"]');
     const svg = g?.querySelector("svg");
     const box = svg?.getBoundingClientRect();
-    return { label: !!g, art: svg?.getAttribute("aria-hidden"), title: [...g.querySelectorAll("p")].some((p) => p.textContent === "Linear wrapped"), bands: svg?.querySelectorAll("g.boot-line").length, square: box && Math.abs(box.width - box.height) < 1, fill: getComputedStyle(svg.querySelector("polygon")).fill, shown: [...svg.querySelectorAll("g.boot-line")].every((e) => getComputedStyle(e).opacity === "1") };
+    return { label: !!g, art: svg?.getAttribute("aria-hidden"), title: g.innerText.trim() === "", bands: svg?.querySelectorAll("g.boot-line").length, square: box && Math.abs(box.width - box.height) < 1, fill: getComputedStyle(svg.querySelector("polygon")).fill, shown: [...svg.querySelectorAll("g.boot-line")].every((e) => getComputedStyle(e).opacity === "1") };
   })()`);
-  check(r.label && r.art === "true" && r.title && r.bands === 17 && r.square && r.shown, `boot: named group, aria-hidden square 17-band mark, exact "Linear wrapped" title, all bands revealed ${JSON.stringify(r)}`);
+  check(r.label && r.art === "true" && r.title && r.bands === 17 && r.square && r.shown, `boot: named group, aria-hidden square 17-band mark, no visible text, all bands revealed ${JSON.stringify(r)}`);
   await shot("boot-desktop");
-  await evaluate(`document.querySelector(".boot").scrollIntoView()`);
-  // The mark mid-reveal: some bands visible, some not (line by line).
+    // The mark mid-reveal: some bands visible, some not (line by line).
   await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "no-preference" }] });
   await send("Page.navigate", { url: BASE + "/" });
   for (let i = 0; i < 100 && !(await evaluate(`!!document.querySelector("svg g.boot-line")`).catch(() => false)); i++) await sleep(15);
@@ -220,8 +243,8 @@ async function boot() {
   await viewport("phone");
   await go("/");
   await sleep(1500);
-  const fit = await evaluate(`(() => { const z = document.querySelector(".pet-screen-zone.crt").getBoundingClientRect(), b = document.querySelector(".boot").getBoundingClientRect(); return b.left >= z.left - 1 && b.right <= z.right + 1 && b.top >= z.top - 1 && b.bottom <= z.bottom + 1; })()`);
-  check(fit, "boot: the logo and text fit inside the PET screen on a phone");
+  const fit = await evaluate(`(() => { const z = document.querySelector(".pet-screen-zone.crt").getBoundingClientRect(), b = document.querySelector(".boot-logo").getBoundingClientRect(); return b.left >= z.left - 1 && b.right <= z.right + 1 && b.top >= z.top - 1 && b.bottom <= z.bottom + 1; })()`);
+  check(fit, "boot: the logo fits inside the PET screen on a phone");
   await shot("boot-phone");
 }
 
@@ -255,14 +278,14 @@ async function drag() {
     await sleep(150);
     const granted = await evaluate(cassetteState);
     check(granted.pet === "granted" && /ACCESS GRANTED/.test(granted.screen), `drag ${name}: release over the computer flashes exactly ACCESS GRANTED ${JSON.stringify(granted)}`);
-    await sleep(300);
-    await shot(`granted-${name}`);
+    await sleep(100);
     const screen = await evaluate(`(() => { const z = document.querySelector(".pet-screen-zone.crt").getBoundingClientRect(), t = document.querySelector(".access-granted").getBoundingClientRect(); return t.left >= z.left && t.right <= z.right && t.top >= z.top && t.bottom <= z.bottom; })()`);
     check(screen, `drag ${name}: the message fits inside the CRT`);
     // Double activation while granted must not start a second redirect.
     await evaluate(`document.querySelector("[data-cassette]").click()`);
     await mouse("mousePressed", pos.px, pos.py);
     await mouse("mouseReleased", pos.px, pos.py);
+    // (A screenshot here is slow enough in software rendering for the redirect to start, so the granted state is not captured.)
     await sleep(2200);
     check(authRequests() - before === 1, `drag ${name}: exactly one sign-in redirect started (${authRequests() - before})`);
   }
@@ -518,6 +541,96 @@ async function story(fixture = "full") {
   }
 }
 
+const rectOf = (sel) => `(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height, op: getComputedStyle(e).opacity }; })()`;
+const inside = (r) => r && r.l >= 0 && r.t >= 0 && r.r <= VIEW.w && r.b <= VIEW.h;
+let VIEW = { w: 0, h: 0 };
+
+/** Sign out in the top bar, the full-screen X, the halftone and the print-out's share button, on the final card. */
+async function recapui() {
+  const { identifier } = await send("Page.addScriptToEvaluateOnNewDocument", { source: FS_STUB("ok") });
+  for (const name of ["desktop", "phone", "phone-landscape", "phone-landscape-short"]) {
+    await viewport(name);
+    VIEW = { w: VIEWPORTS[name][0], h: VIEWPORTS[name][1] };
+    const min = VIEW.h <= 520 ? 36 : 44;
+    await go("/preview/full?card=peak", { reduced: true });
+    check(await evaluate(`!document.querySelector(".story-signout") && !/sign out/i.test(document.querySelector("[role=group]").innerText)`), `recap ${name}: no Sign out on other cards`);
+    await go("/preview/full?card=summary", { reduced: true });
+    const gone = await evaluate(`[...document.querySelectorAll("button")].filter((b) => /sign out/i.test(b.textContent) && !b.classList.contains("story-signout")).length`);
+    check(gone === 0, `recap ${name}: the big Sign out button is gone from the final card`);
+    const halftone = await evaluate(`(() => { const h = document.querySelector(".story-halftone"), s = getComputedStyle(h); return { events: s.pointerEvents, bg: s.backgroundImage.includes("radial-gradient"), mask: (s.maskImage || s.webkitMaskImage || "").includes("radial"), anim: s.animationName, hidden: h.getAttribute("aria-hidden") }; })()`);
+    check(halftone.events === "none" && halftone.bg && halftone.mask && halftone.anim === "none" && halftone.hidden === "true", `recap ${name}: halftone texture is a static, masked, click-through layer ${JSON.stringify(halftone)}`);
+    // Not full screen: sign out sits at the top right, fully visible and big enough.
+    let so = await evaluate(rectOf(".story-signout"));
+    check(inside(so) && so.h >= min - 0.5 && so.w >= 44 && so.r > VIEW.w * 0.6 && so.t < 60, `recap ${name}: Sign out is a discreet top-right control (${JSON.stringify(so)})`);
+    // Full screen: the X joins it, with no overlap, both whole and at least the minimum size.
+    await evaluate(`document.querySelector('.dock-pill button[aria-label="Full screen"]').click()`);
+    await sleep(300);
+    so = await evaluate(rectOf(".story-signout"));
+    const x = await evaluate(rectOf(".story-exit"));
+    const apart = x && so && (x.l >= so.r || so.l >= x.r || x.t >= so.b || so.t >= x.b);
+    check(inside(x) && inside(so) && apart, `recap ${name}: full-screen X and Sign out are both fully visible and do not touch (X ${JSON.stringify(x)}, Sign out ${JSON.stringify(so)})`);
+    check(x && x.w >= min - 0.5 && x.h >= min - 0.5 && so.h >= min - 0.5, `recap ${name}: both targets are at least ${min}px`);
+    await shot(`recapui-${name}`);
+    await evaluate(`window.__esc()`);
+    await sleep(200);
+
+    // The print-out's share button: hidden at rest on a hover screen, shown on hover and on focus; shown always on touch.
+    const hoverNone = await evaluate(`matchMedia("(hover: none)").matches`);
+    const pr = await evaluate(rectOf("[data-print]"));
+    const btn = await evaluate(rectOf(".print-share"));
+    const fitScale = Number(await evaluate(`document.querySelector("[data-fit-scale]").getAttribute("data-fit-scale")`)) || 1;
+    check(btn && btn.w >= 44 * fitScale - 0.5 && btn.h >= min * fitScale - 0.5 && btn.l >= pr.l && btn.r <= pr.r + 1 && inside(btn) && btn.t < pr.t + btn.h, `recap ${name}: the print-out's share button is a whole, on-screen, big enough target straddling the sheet top (card scale ${fitScale}) (${JSON.stringify(btn)} sheet ${JSON.stringify(pr)})`);
+    if (hoverNone) {
+      check(btn.op === "1", `recap ${name}: on a touch screen the share button is always visible`);
+    } else {
+      await mouse("mouseMoved", 5, VIEW.h - 5);
+      await sleep(250);
+      check((await evaluate(rectOf(".print-share"))).op === "0", `recap ${name}: share button is hidden until hover or focus`);
+      await mouse("mouseMoved", pr.l + pr.w / 2, pr.t + pr.h / 2);
+      await sleep(300);
+      check((await evaluate(rectOf(".print-share"))).op === "1", `recap ${name}: hovering the print-out reveals the share button`);
+      await shot(`recapui-hover-${name}`);
+      await mouse("mouseMoved", 5, VIEW.h - 5);
+      await sleep(250);
+      await evaluate(`document.querySelector(".print-share").focus()`);
+      await sleep(250);
+      const f = await evaluate(`(() => { const b = document.querySelector(".print-share"), s = getComputedStyle(b); return { op: s.opacity, outline: s.outlineStyle + " " + s.outlineWidth }; })()`);
+      check(f.op === "1" && /solid 2px/.test(f.outline), `recap ${name}: keyboard focus reveals it with a visible focus ring (${JSON.stringify(f)})`);
+    }
+    // It opens the same share dialog and does not turn the page.
+    await evaluate(`window.__opened = []; window.open = (u) => { window.__opened.push(String(u)); return null; };
+      window.__dl = []; const click = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (this.download) window.__dl.push(this.download); else click.call(this); };
+      const png = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0));
+      const orig = window.fetch.bind(window);
+      window.fetch = async (u, o) => { const s = String(u);
+        if (s.includes("/api/wrapped/share")) return new Response(JSON.stringify({ path: "/s/tok", storyImagePath: "/s/tok/image?f=story&r=ht1", wideImagePath: "/s/tok/image?f=og&r=ht1", text: "My Linear Wrapped", alt: "alt", reveals: ["a number"], sensitive: false, filename: "lw-test" }), { status: 200, headers: { "content-type": "application/json" } });
+        if (s.includes("/image?")) return new Response(new Blob([png], { type: "image/png" }), { status: 200, headers: { "content-type": "image/png" } });
+        return orig(u, o); };
+      navigator.canShare = () => true; navigator.share = async (d) => { window.__shared = { files: d.files.length, type: d.files[0]?.type, url: d.url, text: d.text }; };`);
+    const before = await evaluate(`document.querySelector("[aria-live=polite]").textContent`);
+    await evaluate(`document.querySelector(".print-share").focus(); document.querySelector(".print-share").click()`);
+    await sleep(900);
+    const dlg = await evaluate(`(() => { const d = document.querySelector("dialog[open]"); return { open: !!d, labels: d ? [...d.querySelectorAll("button")].map((b) => b.textContent.trim()) : [], note: d?.innerText.includes("can't attach an image") }; })()`);
+    check(dlg.open && dlg.labels.includes("Share link on X") && dlg.labels.includes("Save image + open X") && dlg.labels.includes("Share image…") && dlg.note, `recap ${name}: the print-out's button opens the share dialog with honest X wording and a native share button ${JSON.stringify(dlg.labels)}`);
+    check((await evaluate(`document.querySelector("[aria-live=polite]").textContent`)) === before, `recap ${name}: opening it does not turn the card`);
+    const click = (label) => evaluate(`[...document.querySelectorAll("dialog button")].find((b) => b.textContent.trim() === ${JSON.stringify(label)}).click()`);
+    await click("Share link on X");
+    await click("Save image + open X");
+    await sleep(600);
+    await click("Share image…");
+    await sleep(300);
+    const out = await evaluate(`({ opened: window.__opened, dl: window.__dl, shared: window.__shared })`);
+    const intent = new URL(out.opened[0] ?? "http://none/");
+    check(out.opened.length === 2 && intent.origin === "https://x.com" && intent.pathname === "/intent/tweet" && intent.searchParams.get("url")?.endsWith("/s/tok") && ![...intent.searchParams.keys()].some((k) => /media|image|token|key/i.test(k)), `recap ${name}: X intent carries only the text and the public card link (${out.opened[0]})`);
+    check(out.dl.length === 1 && /og\.png$/.test(out.dl[0]), `recap ${name}: "Save image + open X" saves the wide PNG (${out.dl})`);
+    check(out.shared?.files === 1 && out.shared.type === "image/png" && out.shared.url?.endsWith("/s/tok"), `recap ${name}: native share gets the PNG file plus the link (${JSON.stringify(out.shared)})`);
+    await evaluate(`document.querySelector("dialog").close()`);
+    await sleep(200);
+    check(await evaluate(`document.activeElement?.classList.contains("print-share")`), `recap ${name}: closing the dialog returns focus to the print-out's share button`);
+  }
+  await send("Page.removeScriptToEvaluateOnNewDocument", { identifier });
+}
+
 async function print() {
   for (const fixture of ["full", "sparse", "zero", "long"]) {
     for (const name of ["desktop", "phone", "phone-small", "phone-landscape", "phone-landscape-short"]) {
@@ -558,6 +671,7 @@ try {
   if (all || which === "dock") await dock();
   if (all || which === "fullscreen") await fullscreen();
   if (all || which === "art") await art();
+  if (all || which === "recapui") await recapui();
 } finally {
   ws.close();
   chrome.kill();
