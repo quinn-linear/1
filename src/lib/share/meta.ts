@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { describe } from "./copy.ts";
 import { decodeToken } from "./snapshot.ts";
-import { IMAGE_FORMATS } from "./theme.ts";
+import { IMAGE_FORMATS, imageQuery } from "./theme.ts";
 
 const SITE_NAME = "Linear Wrapped";
 const TITLE_MAX = 70;
@@ -41,7 +41,7 @@ export function shareMetadata(token: string, secret: string | null, origin: stri
   );
   const url = `${origin}/s/${token}`;
   const { width, height } = IMAGE_FORMATS.og;
-  const image = `${url}/image?f=og`;
+  const image = `${url}/image?${imageQuery("og")}`;
 
   return {
     title,

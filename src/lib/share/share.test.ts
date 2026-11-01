@@ -7,7 +7,7 @@ import { buildShareLink } from "./link.ts";
 import {
   MAX_NAME, MAX_TITLE, MAX_TOKEN_LENGTH, buildSnapshot, cleanText, decodeToken, encodeSnapshot, parseSnapshot, type Snapshot,
 } from "./snapshot.ts";
-import { parseFormat } from "./theme.ts";
+import { IMAGE_VERSION, imageQuery, parseFormat } from "./theme.ts";
 
 const SECRET = "test-secret";
 const person = { id: "u-secret-1", name: "ada", displayName: "Ada L", avatarUrl: "https://cdn.example/avatar-secret.png" };
@@ -153,8 +153,8 @@ test("share link paths and text", () => {
   for (const snap of all()) {
     const link = buildShareLink(snap, SECRET);
     assert.match(link.path, /^\/s\/[\w-]+\.[\w-]{22}$/);
-    assert.equal(link.storyImagePath, `${link.path}/image?f=story`);
-    assert.equal(link.wideImagePath, `${link.path}/image?f=og`);
+    assert.equal(link.storyImagePath, `${link.path}/image?f=story&r=${IMAGE_VERSION}`);
+    assert.equal(link.wideImagePath, `${link.path}/image?f=og&r=${IMAGE_VERSION}`);
     assert.ok(link.text.length <= 200, link.text);
     assert.ok(link.reveals.length > 0);
   }
@@ -208,4 +208,24 @@ test("image text only keeps characters the bundled font covers", async () => {
   const { imageSafe } = await import("./image.ts");
   assert.equal(imageSafe("Café – Ñandú"), "Café – Ñandú");
   assert.equal(imageSafe("Hi 😀😀 日本"), "Hi ? ?");
+});
+
+test("summary token is design-independent, so image URLs must carry the design version", () => {
+  const snap = all().find((s) => s.c === "summary")!;
+  const link = buildShareLink(snap, SECRET);
+  // Same snapshot -> same token before/after a redesign; only `r` can bust cached PNGs.
+  assert.equal(link.path, buildShareLink(snap, SECRET).path);
+  assert.match(IMAGE_VERSION, /^[a-z0-9]{1,8}$/);
+  for (const f of ["story", "og"] as const) assert.equal(imageQuery(f), `f=${f}&r=${IMAGE_VERSION}`);
+  assert.ok(link.storyImagePath.endsWith(`r=${IMAGE_VERSION}`) && link.wideImagePath.endsWith(`r=${IMAGE_VERSION}`));
+});
+
+test("summary renders the holographic card, not the plain layout", async () => {
+  const { renderCard } = await import("./image.ts");
+  const snap = all().find((s) => s.c === "summary")!;
+  for (const f of ["story", "og"] as const) {
+    const json = JSON.stringify(renderCard(snap, f));
+    assert.match(json, /repeating-linear-gradient/, `${f} foil`);
+    assert.match(json, /holo-sigil/, `${f} sigil`);
+  }
 });

@@ -1,4 +1,5 @@
 import { disclosure, describe, shareText } from "./copy.ts";
+import { imageQuery } from "./theme.ts";
 import { encodeSnapshot, type Snapshot } from "./snapshot.ts";
 
 /** Response of `POST /api/wrapped/share`. Paths are relative; the client adds its own origin. */
@@ -20,8 +21,8 @@ export function buildShareLink(snapshot: Snapshot, secret: string): ShareLink {
   const { items, sensitive } = disclosure(snapshot);
   return {
     path,
-    storyImagePath: `${path}/image?f=story`,
-    wideImagePath: `${path}/image?f=og`,
+    storyImagePath: `${path}/image?${imageQuery("story")}`,
+    wideImagePath: `${path}/image?${imageQuery("og")}`,
     text: shareText(snapshot),
     alt: describe(snapshot).alt,
     reveals: items,

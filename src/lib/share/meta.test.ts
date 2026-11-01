@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { IMAGE_VERSION } from "./theme.ts";
 import { shareMetadata, UNAVAILABLE_METADATA } from "./meta.ts";
 import { encodeSnapshot, MAX_TOKEN_LENGTH, type Snapshot } from "./snapshot.ts";
 
@@ -17,10 +18,10 @@ test("valid token yields absolute canonical + wide og/twitter image, still noind
   assert.match(String(m.description), /Get your own Linear Wrapped 2026/);
   const og = m.openGraph as { url: string; images: { url: string; width: number; height: number }[] };
   assert.equal(og.url, url);
-  assert.deepEqual(og.images[0], { ...og.images[0], url: `${url}/image?f=og`, width: 1200, height: 630 });
+  assert.deepEqual(og.images[0], { ...og.images[0], url: `${url}/image?f=og&r=${IMAGE_VERSION}`, width: 1200, height: 630 });
   const tw = m.twitter as { card: string; images: { url: string }[] };
   assert.equal(tw.card, "summary_large_image");
-  assert.equal(tw.images[0].url, `${url}/image?f=og`);
+  assert.equal(tw.images[0].url, `${url}/image?f=og&r=${IMAGE_VERSION}`);
 });
 
 test("title and description are bounded", () => {

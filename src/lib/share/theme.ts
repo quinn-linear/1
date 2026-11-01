@@ -28,6 +28,17 @@ export const IMAGE_FORMATS = {
 
 export type ImageFormat = keyof typeof IMAGE_FORMATS;
 
+/**
+ * Bump whenever the share image design changes. It is part of every image URL
+ * (`r=`): image responses are cached immutably per URL, and a token alone never
+ * changes when only the artwork does (summary snapshots are identical before and
+ * after the holographic redesign), so without it old PNGs keep being served.
+ */
+export const IMAGE_VERSION = "holo2";
+
+/** Query string for an image URL: format plus the current design version. */
+export const imageQuery = (format: ImageFormat) => `f=${format}&r=${IMAGE_VERSION}`;
+
 export function parseFormat(raw: string | null): ImageFormat | null {
   if (raw === null) return "story";
   return raw === "story" || raw === "og" ? raw : null;

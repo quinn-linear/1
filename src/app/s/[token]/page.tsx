@@ -5,7 +5,7 @@ import { describe } from "@/lib/share/copy";
 import { decodeToken } from "@/lib/share/snapshot";
 import { shareMetadata } from "@/lib/share/meta";
 import { shareSecret } from "@/lib/share/server";
-import { IMAGE_FORMATS } from "@/lib/share/theme";
+import { IMAGE_FORMATS, imageQuery } from "@/lib/share/theme";
 import { resolveSiteOrigin } from "@/lib/site";
 
 // Public and cookie-free: this page never reads the session, so it can't leak or mix up anyone's account.
@@ -34,7 +34,7 @@ export default async function SharedCardPage({ params }: { params: Promise<{ tok
       {/* Same-origin generated image; next/image would only add a pointless optimizer hop. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={`/s/${token}/image?f=story`}
+        src={`/s/${token}/image?${imageQuery("story")}`}
         width={width}
         height={height}
         alt={copy.alt}
