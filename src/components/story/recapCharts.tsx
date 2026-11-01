@@ -94,8 +94,8 @@ export function ScopeChart({ scope }: { scope: Scope }) {
   const noneLabel = dim === "projects" ? "No project" : "No label";
   const rows = [
     ...data.series.map((s, i) => ({ name: s.name, counts: s.counts, color: `color-mix(in oklab, var(--a1), var(--a2) ${SERIES_MIX[i]}%)` })),
-    { name: "Other", counts: data.other, color: "rgba(93,255,143,0.4)" },
-    { name: noneLabel, counts: data.none, color: "rgba(93,255,143,0.14)" },
+    { name: "Other", counts: data.other, color: "rgba(184,168,255,0.4)" },
+    { name: noneLabel, counts: data.none, color: "rgba(184,168,255,0.14)" },
   ].filter((r) => r.counts.some((c) => c > 0));
   const total = (q: number) => rows.reduce((sum, r) => sum + r.counts[q], 0);
   const unit = dim === "projects" ? "issue" : "label use";
@@ -116,7 +116,7 @@ export function ScopeChart({ scope }: { scope: Scope }) {
           </button>
         ))}
       </div>
-      <div role="group" aria-label={`Share of ${dim} per quarter. ${summary}`} className="flex h-44 items-stretch gap-2">
+      <div role="group" aria-label={`Share of ${dim} per quarter. ${summary}`} className="flex h-[min(11rem,26dvh)] items-stretch gap-2">
         {[0, 1, 2, 3].map((q) => {
           const t = total(q);
           const qualifies = scope.qualifying.includes(q + 1);
@@ -185,7 +185,7 @@ export function ConstellationChart({ stars }: { stars: { name: string; closedCou
   const cur = stars[active] ?? stars[0];
   return (
     <div className="w-full max-w-md" data-no-nav>
-      <svg viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`Constellation of ${plural(stars.length, "project")}, star size shows closed issues`} className="block w-full overflow-visible">
+      <svg viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`Constellation of ${plural(stars.length, "project")}, star size shows closed issues`} className="mx-auto block max-h-[34dvh] w-full overflow-visible">
         {links.map(([i, j]) => (
           <line key={`${i}-${j}`} x1={layout[i].x * W} y1={layout[i].y * H} x2={layout[j].x * W} y2={layout[j].y * H} stroke="var(--ph)" strokeOpacity={0.55} strokeWidth={1} strokeDasharray="3 3" />
         ))}
@@ -211,7 +211,7 @@ export function ConstellationChart({ stars }: { stars: { name: string; closedCou
             >
               <circle cx={s.x * W} cy={s.y * H} r={r * 1.9} fill="var(--a1)" fillOpacity={on ? 0.32 : 0.14} stroke="transparent" strokeWidth={2} />
               <circle cx={s.x * W} cy={s.y * H} r={r} fill="var(--a1)" />
-              <circle cx={s.x * W} cy={s.y * H} r={r * 0.32} fill="#020703" />
+              <circle cx={s.x * W} cy={s.y * H} r={r * 0.32} fill="#0a0912" />
             </motion.g>
           );
         })}

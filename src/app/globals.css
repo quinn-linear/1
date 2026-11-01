@@ -1,14 +1,16 @@
 @import "tailwindcss" source(none);
 @source "../";
 @source not "../.claude";
+@source not "../.mcp.json";
 
 @theme {
   --font-term: var(--font-vt323), "Courier New", ui-monospace, monospace;
   --font-sans: var(--font-term);
   --font-mono: var(--font-term);
 
-  --color-screen: #020703;
-  --color-ph: #5dff8f;
+  --color-screen: #0a0912;
+  --color-ph: #e9e5ff;
+  --color-lav: #b4a8ff;
   --color-amber: #ffb43a;
   --color-case: #d8cfb3;
   --color-case-shade: #b5aa8a;
@@ -42,9 +44,9 @@
 }
 
 :root {
-  --surface: #020703;
-  --ph: #5dff8f;
-  --a1: #5dff8f;
+  --surface: #0a0912;
+  --ph: #e9e5ff;
+  --a1: #b4a8ff;
   --a2: #ffb43a;
   --led: #ff6a3d;
 }
@@ -66,22 +68,34 @@ body {
   color: #000;
 }
 
-/* A real tube glows: soft halo on phosphor text, kept faint so it never hurts legibility. */
+/*
+ * Analog character for text on the tube: a tight bright core, a soft lavender
+ * halation around it and the faintest red/blue misconvergence on the edges. The
+ * glyphs themselves stay crisp (no blur filter), so small text remains legible.
+ */
 .phosphor {
-  text-shadow: 0 0 5px color-mix(in srgb, currentColor 45%, transparent);
+  text-shadow:
+    -0.5px 0 0 rgb(255 120 170 / 0.22),
+    0.5px 0 0 rgb(120 170 255 / 0.25),
+    0 0 4px rgb(205 195 255 / 0.5),
+    0 0 12px rgb(150 130 255 / 0.28);
 }
 
 .accent-text {
   color: var(--a1);
-  text-shadow: 0 0 8px color-mix(in srgb, var(--a1) 55%, transparent);
+  text-shadow:
+    -0.5px 0 0 rgb(255 120 170 / 0.2),
+    0.5px 0 0 rgb(120 170 255 / 0.22),
+    0 0 6px color-mix(in srgb, var(--a1) 60%, transparent),
+    0 0 16px color-mix(in srgb, var(--a1) 30%, transparent);
 }
 
 /* The CRT: black glass with scanlines, a gentle vignette and a very slow brightness drift (never a flash). */
 /* Consumers set `relative`/`absolute`: unlayered rules here would otherwise beat Tailwind's position utilities. */
 .crt {
   isolation: isolate;
-  background: radial-gradient(ellipse at 50% 45%, #06140a 0%, var(--color-screen) 70%);
-  box-shadow: inset 0 0 60px rgb(0 0 0 / 0.85), inset 0 0 6px rgb(93 255 143 / 0.18);
+  background: radial-gradient(ellipse at 50% 45%, #1a1638 0%, var(--color-screen) 72%);
+  box-shadow: inset 0 0 60px rgb(0 0 0 / 0.85), inset 0 0 6px rgb(184 168 255 / 0.18);
 }
 
 .crt::before {
@@ -108,16 +122,6 @@ body {
 @keyframes tube {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
-}
-
-/* Cream plastic with a little tooth, lit from the top left. */
-.case {
-  background:
-    linear-gradient(160deg, rgb(255 255 255 / 0.35), transparent 40%),
-    linear-gradient(0deg, rgb(0 0 0 / 0.1), transparent 30%),
-    var(--color-case);
-  box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.5), inset 0 -4px 0 rgb(0 0 0 / 0.15);
-  color: var(--color-ink);
 }
 
 /* Keyboard keys and case buttons. */
@@ -195,7 +199,7 @@ body {
 .term-btn:hover:not(:disabled),
 .term-btn[aria-pressed="true"] {
   background: var(--ph);
-  color: #021006;
+  color: #0a0912;
 }
 
 .term-btn:disabled {
@@ -244,7 +248,7 @@ input.term-input {
 /* The desk the computer sits on: dark wood grain, nothing busy. */
 .desk {
   background:
-    radial-gradient(ellipse 80% 50% at 50% 30%, rgb(93 255 143 / 0.07), transparent 70%),
+    radial-gradient(ellipse 80% 50% at 50% 30%, rgb(184 168 255 / 0.07), transparent 70%),
     repeating-linear-gradient(90deg, rgb(255 255 255 / 0.018) 0 2px, transparent 2px 46px),
     var(--color-desk);
 }
@@ -255,18 +259,34 @@ input.term-input {
 }
 
 /*
- * The landing photo and the terminal pinned to its CRT. `--w*` are fractions of
- * the whole picture; the crop (`--vx..--vh`) switches to a tight monitor view on
- * phones. Everything below derives from those, so the overlay can't drift.
+ * The landing photo and the terminal pinned to its CRT. `.pet-stage` is a size
+ * container filling whatever room the layout gives it; `.pet-view` is the
+ * largest box of the picture's aspect ratio that fits that room in BOTH
+ * directions, so the picture can never push the page taller than the viewport.
+ * `--w*` are fractions of the whole picture; the crop (`--vx..--vh`) switches
+ * to a tight monitor view on narrow screens. Everything below derives from
+ * those, so the overlay can't drift.
  */
-.pet-view {
+.pet-stage {
   --vx: var(--wide-x);
   --vy: var(--wide-y);
   --vw: var(--wide-w);
   --vh: var(--wide-h);
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  min-width: 0;
+}
+
+.pet-view {
+  --ar: calc(var(--vw) * var(--art-ar) / var(--vh));
   --fs: 2.55cqw;
   container-type: inline-size;
-  aspect-ratio: calc(var(--vw) * var(--art-ar) / var(--vh));
+  aspect-ratio: var(--ar);
+  width: min(100cqw, calc(100cqh * var(--ar)));
+  flex: none;
 }
 
 .pet-img {
@@ -289,12 +309,203 @@ input.term-input {
   padding: 3% 4%;
 }
 
+/* Narrow (or short and narrow) screens crop in on the monitor. */
 @media (max-width: 639px) {
-  .pet-view {
+  .pet-stage {
     --vx: var(--tight-x);
     --vy: var(--tight-y);
     --vw: var(--tight-w);
     --vh: var(--tight-h);
+  }
+  .pet-view {
     --fs: 5.6cqw;
   }
+}
+
+/*
+ * Landing layout: one screen, no page scroll. Portrait/narrow stacks the
+ * computer over the dock (drive, floppy, keys); landscape puts them side by
+ * side. Both cells are `minmax(0, ...)` so the picture and the drive are sized
+ * from what is left after the header, never the other way round.
+ */
+.landing-body {
+  display: grid;
+  flex: 1 1 0;
+  min-height: 0;
+  gap: 0.5rem;
+  grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.3fr);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dock {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dock-stage {
+  container-type: size;
+  display: flex;
+  min-height: 0;
+  width: 100%;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.dock-art {
+  position: relative;
+  flex: none;
+  aspect-ratio: 480 / 365;
+  width: min(100cqw, calc(100cqh * 480 / 365));
+}
+
+.dock-keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 0.6rem;
+  padding-bottom: 5px;
+}
+
+@media (min-width: 700px) and (orientation: landscape) {
+  .landing-body {
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) clamp(15rem, 30vw, 25rem);
+    align-items: stretch;
+  }
+  .dock-keys {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+}
+
+/* Short screens drop the supporting copy first; the title, computer, drive, keys and sign-in link stay. */
+@media (max-height: 640px), (max-width: 639px) {
+  .landing-tagline,
+  .landing-hint {
+    display: none;
+  }
+  .keycap {
+    min-height: 2.25rem;
+    padding-block: 0.15rem;
+  }
+}
+
+/* The boot screen on the PET's CRT: the logo in a block-capable monospace face, revealed line by line. */
+.boot {
+  font-size: 0.74em;
+}
+
+.boot-logo {
+  font-family: ui-monospace, "DejaVu Sans Mono", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.6em;
+  line-height: 1;
+  letter-spacing: 0;
+  font-variant-ligatures: none;
+  white-space: pre;
+  text-transform: none;
+}
+
+.boot-line {
+  animation: boot-line 1ms steps(1, end) both;
+}
+
+@keyframes boot-line {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.boot-skip .boot-line {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-line { animation: none; }
+}
+
+/* ---------- Story: a full-screen tube, no case ---------- */
+
+/* Edge to edge: a deeper vignette stands in for the bezel, so the glass fades out at the screen edges. */
+.story-crt {
+  box-shadow: inset 0 0 14vmin rgb(0 0 0 / 0.75);
+}
+
+.term-btn {
+  min-height: 2.5rem;
+}
+
+@media (max-height: 520px) {
+  .story-crt .term-btn {
+    min-height: 2rem;
+    padding-block: 0.1rem;
+  }
+}
+
+/*
+ * Cards load like an old screen filling in: each block is wiped in from the top
+ * in a few hard steps, one after another. Fill mode is `backwards`, so once a
+ * block has appeared nothing is left clipping its glow. Skipping, reduced
+ * motion and leaving the card (which unmounts it) all end the reveal.
+ */
+.reveal-block {
+  animation: reveal-block 0.26s steps(6, end) backwards;
+  animation-delay: calc(var(--i, 0) * 90ms + 60ms);
+}
+
+@keyframes reveal-block {
+  from { clip-path: inset(0 0 100% 0); }
+  to { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+
+.reveal-skip .reveal-block {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-block { animation: none; }
+}
+.reveal-stack > :nth-child(1) { --i: 0; }
+.reveal-stack > :nth-child(2) { --i: 1; }
+.reveal-stack > :nth-child(3) { --i: 2; }
+.reveal-stack > :nth-child(4) { --i: 3; }
+.reveal-stack > :nth-child(5) { --i: 4; }
+.reveal-stack > :nth-child(6) { --i: 5; }
+.reveal-stack > :nth-child(7) { --i: 6; }
+.reveal-stack > :nth-child(8) { --i: 7; }
+.reveal-stack > :nth-child(9) { --i: 8; }
+.reveal-stack > :nth-child(10) { --i: 9; }
+.reveal-stack > :nth-child(11) { --i: 10; }
+.reveal-stack > :nth-child(12) { --i: 11; }
+.reveal-stack > :nth-child(n + 13) { --i: 12; }
+
+@media (max-width: 639px) {
+  .landing-header .term-btn {
+    min-height: 2.25rem;
+    padding-inline: 0.6rem;
+    font-size: 1.05rem;
+    letter-spacing: 0.04em;
+  }
+  .landing-hint {
+    font-size: 1.2rem;
+  }
+}
+
+/* Two-column flow, chosen by `Fit` on short, wide screens: blocks stay whole and the columns balance. */
+[data-cols="2"] .reveal-stack,
+[data-cols="3"] .reveal-stack {
+  display: block;
+  column-gap: 2.5rem;
+}
+
+[data-cols="2"] .reveal-stack { column-count: 2; }
+[data-cols="3"] .reveal-stack { column-count: 3; }
+
+[data-cols="2"] .reveal-stack > *,
+[data-cols="3"] .reveal-stack > * {
+  break-inside: avoid;
+  margin-bottom: min(1.5rem, 2.2dvh);
 }

@@ -13,8 +13,8 @@ import { CARD_ACCENTS, IMAGE_FORMATS, SURFACE, type ImageFormat } from "./theme.
  * Only text from a validated snapshot goes in: no remote images or fonts are
  * fetched, so there is nothing for a crafted link to make us request.
  *
- * Look: every image is a screenshot of the computer: cream case, black tube
- * with scanlines, phosphor text, one green or amber accent per card (shared
+ * Look: every image is a full-screen capture of the tube: blue-black glass with
+ * scanlines, pale lavender-white text, one lavender or amber accent per card (shared
  * with the story UI via `CARD_ACCENTS`). The summary is the collectible floppy
  * disk with its system-report label and two small holographic foil stickers.
  * The type is the renderer's bundled sans, set in capitals; the web UI's bitmap
@@ -61,59 +61,27 @@ const text = (style: CSSProperties, children: string) => h("div", { style: { dis
 const box = (style: CSSProperties, ...children: (ReactElement | null)[]) => h("div", { style: { display: "flex", ...style } }, ...children);
 const fill: CSSProperties = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
 
-const GLOW = "0 0 14px rgba(93,255,143,0.4)";
+const GLOW = "0 0 14px rgba(184,168,255,0.45), 0 0 3px rgba(233,229,255,0.5)";
 
-/** The computer around every image: case, tube (scanlines + vignette) and a strip with the model plate and keys. */
+/**
+ * The tube behind every image: edge to edge (no case or bezel, like the story),
+ * with scanlines and a vignette over a blue-black screen.
+ */
 function frame(format: ImageFormat, screen: ReactElement): ReactElement {
   const { width, height } = IMAGE_FORMATS[format];
-  const story = format === "story";
-  const pad = story ? 44 : 22;
-  const strip = story ? 150 : 62;
-  const key = (i: number) =>
-    cloneElement(
-      box({
-        width: story ? 74 : 34,
-        height: story ? 46 : 22,
-        borderRadius: story ? 6 : 3,
-        backgroundColor: "#efe8cf",
-        border: `${story ? 2 : 1}px solid #000`,
-        boxShadow: `0 ${story ? 6 : 3}px 0 ${PALETTE.caseDeep}`,
-      }),
-      { key: i },
-    );
   return box(
     {
+      position: "relative",
       width,
       height,
-      flexDirection: "column",
-      padding: pad,
-      color: "#fff",
-      backgroundColor: PALETTE.case,
-      backgroundImage: "linear-gradient(160deg, rgba(255,255,255,0.4), rgba(255,255,255,0) 40%), linear-gradient(0deg, rgba(0,0,0,0.12), rgba(0,0,0,0) 30%)",
+      overflow: "hidden",
+      color: PALETTE.phosphor,
+      backgroundColor: SURFACE,
+      backgroundImage: "radial-gradient(circle at 50% 45%, #1a1638, rgba(10,9,18,1) 75%)",
     },
-    box(
-      {
-        position: "relative",
-        flex: 1,
-        overflow: "hidden",
-        borderRadius: story ? 64 : 30,
-        border: `${story ? 12 : 6}px solid #0d0c08`,
-        backgroundColor: SURFACE,
-        backgroundImage: "radial-gradient(circle at 50% 45%, #06140a, rgba(2,7,3,1) 75%)",
-      },
-      screen,
-      box({ ...fill, backgroundImage: "repeating-linear-gradient(180deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 3px, rgba(0,0,0,0.13) 3px, rgba(0,0,0,0.13) 4px)" }),
-      box({ ...fill, backgroundImage: "radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 65%, rgba(0,0,0,0.35) 100%)" }),
-    ),
-    box(
-      { height: strip, alignItems: "center", justifyContent: "space-between", paddingTop: story ? 14 : 4 },
-      text({ fontSize: story ? 34 : 20, letterSpacing: story ? 7 : 4, textTransform: "uppercase", color: PALETTE.ink, opacity: 0.75 }, "LW-2026 Personal"),
-      box(
-        { alignItems: "center", gap: story ? 16 : 8 },
-        ...[0, 1, 2, 3].map(key),
-        box({ width: story ? 24 : 12, height: story ? 24 : 12, borderRadius: 999, backgroundColor: "#ff6a3d", marginLeft: story ? 12 : 6 }),
-      ),
-    ),
+    screen,
+    box({ ...fill, backgroundImage: "repeating-linear-gradient(180deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 3px, rgba(0,0,0,0.13) 3px, rgba(0,0,0,0.13) 4px)" }),
+    box({ ...fill, backgroundImage: "radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 78%, rgba(0,0,0,0.3) 100%)" }),
   );
 }
 
@@ -145,7 +113,7 @@ function renderPlain(snapshot: Snapshot, format: ImageFormat): ReactElement {
       "div",
       { style: { ...fill, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: k.pad, color: PALETTE.phosphor } },
       box(
-        { justifyContent: "space-between", alignItems: "center", paddingBottom: k.kicker * 0.4, borderBottom: "2px dashed rgba(93,255,143,0.5)", fontSize: k.kicker, letterSpacing: 5, textTransform: "uppercase" },
+        { justifyContent: "space-between", alignItems: "center", paddingBottom: k.kicker * 0.4, borderBottom: "2px dashed rgba(184,168,255,0.5)", fontSize: k.kicker, letterSpacing: 5, textTransform: "uppercase" },
         text({}, `Linear Wrapped ${snapshot.y}`),
         text({ color: a }, "Ready."),
       ),
@@ -172,7 +140,7 @@ function renderPlain(snapshot: Snapshot, format: ImageFormat): ReactElement {
 /** Blocky bars with a segmented look, like a character-cell chart. */
 function bars(bs: NonNullable<CardCopy["bars"]>, k: Scale, a: string, b: string) {
   const max = Math.max(...bs.values, 1);
-  const seg = "repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 14px, rgba(2,7,3,0.9) 14px, rgba(2,7,3,0.9) 18px)";
+  const seg = "repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 14px, rgba(10,9,18,0.9) 14px, rgba(10,9,18,0.9) 18px)";
   return h(
     "div",
     { style: { display: "flex", alignItems: "flex-end", gap: k.pad / 8, height: k.barHeight, marginTop: 16 } },
@@ -203,7 +171,7 @@ function rail(spans: NonNullable<CardCopy["rail"]>, k: Scale, a: string, b: stri
     h(
       "div",
       { style: { display: "flex", position: "relative", width, height: tall } },
-      box({ position: "absolute", left: 0, top: (tall - bar) / 2, width, height: bar, backgroundColor: "rgba(93,255,143,0.2)" }),
+      box({ position: "absolute", left: 0, top: (tall - bar) / 2, width, height: bar, backgroundColor: "rgba(184,168,255,0.2)" }),
       ...spans.map((sp, i) =>
         sp.tone === "mark"
           ? cloneElement(box({ position: "absolute", left: Math.min(px(sp.from), width - tall), top: 0, width: tall, height: tall, backgroundColor: b }), { key: i })
@@ -214,7 +182,7 @@ function rail(spans: NonNullable<CardCopy["rail"]>, k: Scale, a: string, b: stri
                 top: sp.tone === "burst" ? 0 : (tall - bar) / 2,
                 width: Math.max(px(sp.to - sp.from), bar),
                 height: sp.tone === "burst" ? tall : bar,
-                ...(sp.tone === "burst" ? { backgroundColor: a } : { border: "2px dashed rgba(93,255,143,0.8)" }),
+                ...(sp.tone === "burst" ? { backgroundColor: a } : { border: "2px dashed rgba(184,168,255,0.8)" }),
               }),
               { key: i },
             ),
@@ -238,8 +206,8 @@ function pills(items: string[], k: Scale) {
             fontSize: k.pill,
             textTransform: "uppercase",
             padding: `${k.pill / 6}px ${k.pill / 2}px`,
-            border: "2px solid rgba(93,255,143,0.7)",
-            backgroundColor: "rgba(93,255,143,0.08)",
+            border: "2px solid rgba(184,168,255,0.7)",
+            backgroundColor: "rgba(184,168,255,0.08)",
             color: PALETTE.phosphor,
           },
         },
@@ -271,7 +239,7 @@ function renderDisk(s: Summary, format: ImageFormat): ReactElement {
       format,
       box(
         { ...fill, flexDirection: "column", justifyContent: "space-between", padding: 72 },
-        box({ flexDirection: "column", paddingBottom: 18, borderBottom: "2px dashed rgba(93,255,143,0.5)" }, status(36)),
+        box({ flexDirection: "column", paddingBottom: 18, borderBottom: "2px dashed rgba(184,168,255,0.5)" }, status(36)),
         box({ alignSelf: "center" }, disk),
         text({ fontSize: 34, opacity: 0.75, color: PALETTE.phosphor }, s.u ? "> Counts may be undercounts." : "> Get yours: Linear Wrapped"),
       ),
@@ -342,8 +310,8 @@ function diskCard(s: Summary, w: number): ReactElement {
       box({ position: "absolute", left: 0, top: 0, width: labelW, height: px(16), backgroundColor: PALETTE.amber }),
       box(
         { justifyContent: "space-between", alignItems: "center", marginTop: px(14) },
-        text({ fontSize: px(26), letterSpacing: px(3), textTransform: "uppercase", color: ink }, `Linear Wrapped ${s.y}`),
-        text({ fontSize: px(22), letterSpacing: px(3), textTransform: "uppercase", color: ink, opacity: 0.8 }, "System report"),
+        text({ fontSize: px(26), letterSpacing: px(3), textTransform: "uppercase", color: ink }, `Linear Wrapped`),
+        text({ fontSize: px(26), letterSpacing: px(3), color: ink, opacity: 0.8 }, String(s.y)),
       ),
       box(
         { gap: px(26), alignItems: "center" },
@@ -357,8 +325,8 @@ function diskCard(s: Summary, w: number): ReactElement {
         box(
           { flexDirection: "column", gap: px(4), flex: 1 },
           text({ fontSize: px(24), letterSpacing: px(4), textTransform: "uppercase", color: ink, opacity: 0.7 }, "Archetype"),
-          text({ fontSize: px(64), lineHeight: 0.95, textTransform: "uppercase", color: ink }, archetype.name),
-          text({ fontSize: px(28), color: ink, opacity: 0.85 }, archetype.tagline),
+          text({ fontSize: fit(px(64), archetype.name, 10, 0.55), lineHeight: 0.95, textTransform: "uppercase", color: ink }, archetype.name),
+          text({ fontSize: px(26), lineHeight: 1.1, color: ink, opacity: 0.85 }, archetype.description),
         ),
       ),
       box(

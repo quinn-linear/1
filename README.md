@@ -120,4 +120,12 @@ The whole experience is a 1980s computer. `/` is a Commodore PET photo (`public/
 
 **Sound** (`src/lib/retro/sound.ts`, `components/retro/Sound.tsx`): synthesized with WebAudio (no samples). A sound only ever plays in direct response to the visitor's own click or key press (disk insert/load, terminal key ticks, card advance); the AudioContext is not created before that. The **SND ON/OFF** key is visible on the landing and on every card, remembered in `localStorage`, defaults to off under `prefers-reduced-motion`, and the disk sound shortens to a click. Master gain is 0.12, each sound is length-capped and rate-limited.
 
-**Share images** are drawn as a screenshot of the computer (cream case, scanlines, phosphor) and versioned `r=pet1`. Links minted earlier keep working: no `r` and `r=holo2` are still accepted and drawn in the current design, but only the current version is cached as immutable. Satori can't load the bitmap webfont without fetching it, so images use the renderer's bundled sans in capitals.
+**Share images** are drawn as a screenshot of the computer (scanlines, pale lavender-white text) and versioned `r=pet2` (full-screen lavender CRT, no case). Links minted earlier keep working: no `r`, `r=pet1` and `r=holo2` are still accepted and drawn in the current design, but only the current version is cached as immutable. Satori can't load the bitmap webfont without fetching it, so images use the renderer's bundled sans in capitals.
+
+
+## Retro refinement notes
+
+- **Landing** fits one screen (no page scroll); it only scrolls as a last resort at extreme zoom. The PET photo (`public/retro/pet.png`) is unchanged; the CRT shows a boot screen with the Linear mark in half-block characters (`src/lib/retro/logo.ts`) beside "Linear wrapped". It reveals line by line, is skipped by any key/touch or by inserting the disk, and is instant under reduced motion.
+- **Floppy** is rendered in a portal on `document.body` at the top z-index, so it is above the drive and computer while dragged and seated.
+- **Recap** is a full-screen CRT. `Fit` lays each card out so it is fully visible (shrinking, then 2-3 columns on short wide screens); only below a 0.5 scale does a card scroll (accessibility fallback). Cards load block by block (tap or Enter skips; reduced motion is instant).
+- **Browser checks:** `PREVIEW_FIXTURES=1 npm run dev`, then `CHROME=/path/to/chrome-headless-shell BASE=http://localhost:3000 node scripts/browser-check.mjs [landing|boot|drag|story|disk]`. `/preview/<full|sparse|zero|long>?card=<id>` is a 404 unless `PREVIEW_FIXTURES=1`.

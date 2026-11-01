@@ -17,13 +17,6 @@ export const metadata: Metadata = {
   },
 };
 
-const DIRECTORY = [
-  { name: "ISSUES CLOSED", value: "???" },
-  { name: "WORK ARCHETYPE", value: "YOU'LL SEE" },
-  { name: "PEAK MONTH", value: "SPOILERS" },
-  { name: "LONGEST STREAK", value: "DAYS?!" },
-];
-
 const errors: Record<string, string> = {
   config: "Sign-in isn't configured yet.",
   state: "That sign-in attempt expired or looked off. Try again.",
@@ -31,6 +24,12 @@ const errors: Record<string, string> = {
   token: "Linear didn't complete the sign-in. Try again.",
 };
 
+/**
+ * The landing is one screen: everything essential (title, computer, drive and
+ * floppy, keys, the plain sign-in link) is sized from the viewport so nothing
+ * needs scrolling. The page only scrolls as a last resort, when the viewport is
+ * so small (extreme zoom) that the content can't shrink any further.
+ */
 export default async function Home({
   searchParams,
 }: {
@@ -40,49 +39,26 @@ export default async function Home({
   const errorMessage = error ? errors[error] : undefined;
 
   return (
-    <main className="desk relative min-h-dvh overflow-x-hidden">
-      <section className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-8 px-4 pb-12 pt-6 sm:px-8">
-        <header className="flex items-start justify-between gap-4 text-amber">
-          <div>
-            <h1 className="text-3xl leading-none tracking-wide sm:text-5xl">LINEAR WRAPPED {YEAR}</h1>
-            <p className="mt-2 max-w-lg text-lg leading-snug text-ph/80 sm:text-xl">
-              Your year in Linear, loaded from a single floppy disk. Every issue you closed, every streak you kept alive.
-            </p>
+    <main className="desk h-dvh overflow-y-auto overflow-x-hidden">
+      <section className="mx-auto flex h-full min-h-[20rem] max-w-[110rem] flex-col gap-2 px-3 py-2 sm:px-6 sm:py-3">
+        <header className="landing-header flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
+          <div className="min-w-0">
+            <h1 className="text-[clamp(1.5rem,min(7vw,5dvh),3rem)] leading-none tracking-wide text-amber">LINEAR WRAPPED {YEAR}</h1>
+            <p className="landing-tagline mt-1 max-w-xl text-lg leading-snug text-ph/80">Your year in Linear, loaded from a single floppy disk.</p>
           </div>
+          <SignInButton href={START_PATH} />
         </header>
 
         {errorMessage && (
-          <p role="alert" className="panel max-w-xl px-4 py-3 text-lg text-amber">
+          <p role="alert" className="panel max-w-xl px-3 py-1 text-lg text-amber">
             ?ERROR: {errorMessage.toUpperCase()}
           </p>
         )}
 
         <PetLanding year={YEAR} startPath={START_PATH} />
 
-        <div className="flex flex-wrap items-start justify-between gap-8 border-t-2 border-dashed border-ph/30 pt-6">
-          <SignInButton href={START_PATH} />
-          <section aria-labelledby="directory" className="panel w-full max-w-xl p-4 text-lg sm:text-xl">
-            <h2 id="directory" className="text-amber">
-              LOAD &quot;$&quot;,8 <span className="sr-only">: disk directory, a sneak peek</span>
-            </h2>
-            <ul className="mt-2">
-              {DIRECTORY.map((d) => (
-                <li key={d.name} className="flex items-baseline gap-2">
-                  <span className="shrink-0 text-ph/70">PRG</span>
-                  <span>&quot;{d.name}&quot;</span>
-                  <span aria-hidden className="min-w-4 flex-1 overflow-hidden whitespace-nowrap text-ph/30">
-                    ..............................
-                  </span>
-                  <span className="text-amber">{d.value}</span>
-                </li>
-              ))}
-              <li className="text-ph/70">12 MORE FILES ON THIS DISK.</li>
-            </ul>
-          </section>
-        </div>
-
         <noscript>
-          <p className="panel p-4 text-lg">
+          <p className="panel p-3 text-lg">
             The floppy disk needs JavaScript. <a href={START_PATH} className="text-amber underline">Sign in with Linear</a> to go straight to your recap.
           </p>
         </noscript>

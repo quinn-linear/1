@@ -1,45 +1,53 @@
 "use client";
 
-import { animate, motion, useMotionValue, useReducedMotion, useTransform, type Variants } from "framer-motion";
-import { useEffect, type ReactNode } from "react";
+import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
+import { Children, useEffect, type ReactNode } from "react";
 
-/** Staggered entrance for a card's content; children use `Reveal`. */
-export const stack: Variants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.12, delayChildren: 0.15 } },
-};
+/**
+ * A card's content is a stack of blocks that load in one after another, top to
+ * bottom, like a screen filling in on an old terminal (`.reveal-*` in
+ * globals.css). It is pure CSS: reduced motion shows everything at once, the
+ * `.reveal-skip` class (set when the viewer taps or presses Enter) does the
+ * same, and a new card mounts a fresh stack, so leaving a card ends its reveal.
+ */
+export function RevealStack({ children, skipped, className = "" }: { children: ReactNode; skipped: boolean; className?: string }) {
+  return <div className={`reveal-stack ${skipped ? "reveal-skip" : ""} ${className}`}>{children}</div>;
+}
 
-const rise: Variants = {
-  hidden: { opacity: 0, y: 28 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 140, damping: 18 } },
-};
-
-export function Reveal({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <motion.div variants={rise} className={className}>
-      {children}
-    </motion.div>
-  );
+export function Reveal({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={`reveal-block ${className}`}>{children}</div>;
 }
 
 export function Kicker({ children }: { children: ReactNode }) {
   return (
-    <p className="flex items-center gap-2 text-base font-medium uppercase tracking-[0.18em] text-ph/80 sm:text-xl">
+    <p className="flex max-w-full items-center gap-2 text-base font-medium uppercase tracking-[0.18em] text-ph/80 sm:text-xl">
       <span aria-hidden className="accent-text">
         &gt;
       </span>
-      {children}
-      <span aria-hidden className="cursor-block !h-[0.7em] !w-[0.4em]" />
+      <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
+      <span aria-hidden className="cursor-block !h-[0.7em] !w-[0.4em] shrink-0" />
     </p>
   );
 }
 
 export function Huge({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <p className={`font-semibold leading-[0.82] tabular-nums text-[30vw] sm:text-[14rem] ${className}`}>{children}</p>;
+  return <p className={`font-semibold leading-[0.82] tabular-nums text-[min(30vw,22dvh)] sm:text-[min(14rem,25dvh)] ${className}`}>{children}</p>;
 }
 
+/** The plain text of a headline's children, to size it by length. */
+const textOf = (children: ReactNode) =>
+  Children.toArray(children)
+    .map((c) => (typeof c === "string" || typeof c === "number" ? String(c) : ""))
+    .join("");
+
+/**
+ * Headlines carry user text (project names, issue titles), so long ones step down
+ * in size rather than running to many lines; the `!` beats a card's own size class.
+ */
 export function Headline({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <h2 className={`font-semibold leading-[0.92] text-[12vw] sm:text-7xl ${className}`}>{children}</h2>;
+  const len = textOf(children).length;
+  const long = len > 60 ? "!text-[min(5vw,3.6dvh)] sm:!text-[min(1.9rem,4.4dvh)]" : len > 30 ? "!text-[min(8vw,5.5dvh)] sm:!text-[min(2.6rem,6dvh)]" : "";
+  return <h2 className={`font-semibold leading-[0.92] text-[min(12vw,9dvh)] sm:text-7xl ${className} ${long}`}>{children}</h2>;
 }
 
 export function Blurb({ children }: { children: ReactNode }) {

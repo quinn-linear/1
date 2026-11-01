@@ -1,11 +1,14 @@
 /**
  * The one palette for the whole experience: the web UI reads these through CSS
- * variables in `globals.css`, the share images use them directly. Two phosphors
- * (green P1, amber P3) on a black tube, plus the cream plastic of the case.
+ * variables in `globals.css`, the share images use them directly. A pale cool
+ * lavender-white tube text on a blue-black screen, a lavender accent and one
+ * warm amber, plus the cream plastic of the 1980s hardware on the landing.
  */
 export const PALETTE = {
-  screen: "#020703",
-  phosphor: "#5dff8f",
+  screen: "#0a0912",
+  phosphor: "#e9e5ff",
+  /** Accent: a more saturated lavender for emphasis on the tube. */
+  lavender: "#b4a8ff",
   amber: "#ffb43a",
   /** Case plastic, light and shadowed. */
   case: "#d8cfb3",

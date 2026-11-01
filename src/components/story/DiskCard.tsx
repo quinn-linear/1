@@ -67,9 +67,10 @@ export function DiskCard({ recap }: { recap: Recap }) {
   const foilStyle = { backgroundImage: foil, backgroundSize: "300% 300%", backgroundPosition: foilPos };
 
   return (
-    <div className="[perspective:1100px]" style={{ width: "min(84vw, calc(100dvh - 17rem), 24rem)" }}>
+    <div className="[perspective:1100px]" style={{ width: "min(100%, 24rem, 64dvh)" }}>
       <motion.div
         data-no-nav
+        data-disk
         role="group"
         tabIndex={0}
         aria-label={`Collectible floppy disk for ${recap.viewer.name}, ${recap.year}: ${plural(recap.totalClosed, "issue")} closed, archetype ${recap.archetype.name}, ${plural(recap.activeDays, "active day")}`}
@@ -79,7 +80,7 @@ export function DiskCard({ recap }: { recap: Recap }) {
         onPointerCancel={() => setEngaged(false)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        style={{ rotateX: reduce ? 6 : rotateX, rotateY: reduce ? -6 : rotateY, transformStyle: "preserve-3d" }}
+        style={{ rotateX: reduce ? 6 : rotateX, rotateY: reduce ? -6 : rotateY, transformStyle: "preserve-3d", containerType: "inline-size" }}
         initial={reduce ? false : { opacity: 0, y: 40, rotateZ: -3 }}
         animate={{ opacity: 1, y: 0, rotateZ: 0 }}
         transition={{ type: "spring", stiffness: 90, damping: 16, delay: 0.25 }}
@@ -88,46 +89,56 @@ export function DiskCard({ recap }: { recap: Recap }) {
         {/* Sleeve */}
         <div className="absolute inset-0 rounded-[3%] border-2 border-black bg-[linear-gradient(150deg,#2b2923,#0f0e0a)] shadow-[8px_10px_0_rgb(0_0_0/0.55)]">
           <svg viewBox="0 0 200 200" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden focusable="false">
-            <rect x={80} y={8} width={40} height={44} rx={20} fill="#030303" stroke="#4a463a" strokeWidth={2} />
-            <circle cx={100} cy={62} r={22} fill="#17150f" stroke="#5a5444" strokeWidth={2} />
-            <circle cx={100} cy={62} r={9} fill="#030303" stroke="#7a7360" strokeWidth={1.5} />
+            <rect x={80} y={7} width={40} height={36} rx={18} fill="#030303" stroke="#4a463a" strokeWidth={2} />
+            <circle cx={100} cy={64} r={19} fill="#17150f" stroke="#5a5444" strokeWidth={2} />
+            <circle cx={100} cy={64} r={8} fill="#030303" stroke="#7a7360" strokeWidth={1.5} />
           </svg>
         </div>
 
         {/* Write-protect tab: a holographic foil sticker. */}
-        <motion.div aria-hidden className="absolute left-[-1.2%] top-[22%] h-[12%] w-[4.5%] border border-black/60" style={{ ...foilStyle, translateZ: 6 }} />
+        <motion.div aria-hidden className="absolute left-[-1.2%] top-[20%] h-[10%] w-[4.5%] border border-black/60" style={{ ...foilStyle, translateZ: 6 }} />
 
-        {/* Paper label with the system report */}
-        <div className="absolute inset-x-[6%] bottom-[3.5%] top-[50%] flex flex-col justify-between overflow-hidden border border-black/40 bg-[#e8e0c4] p-[3%] text-ink" style={{ transform: "translateZ(14px)" }}>
-          <div className="h-[7%] min-h-[0.35rem] bg-amber" aria-hidden />
-          <div className="flex items-center justify-between text-[clamp(0.9rem,3.6vw,1.2rem)] uppercase leading-none tracking-[0.12em]">
-            <span>Linear Wrapped</span>
-            <span>System report {recap.year}</span>
-          </div>
-          <div className="flex min-h-0 flex-1 gap-[3%] pt-[2%]">
-            <div className="crt relative aspect-square h-full shrink-0 overflow-hidden border-2 border-ink">
+        {/*
+          Paper label. A grid of three bands (header / archetype / stats), each in its
+          own row, so nothing can sit on top of anything else: text wraps or clamps
+          inside its cell, and the middle band takes whatever height is left. Type is in
+          container units (cqw), so the whole label scales with the disk.
+        */}
+        <div
+          className="absolute inset-x-[5%] bottom-[3%] top-[44%] grid grid-rows-[auto_minmax(0,1fr)_auto] gap-[2.6cqw] overflow-hidden border border-black/40 bg-[#e8e0c4] px-[3cqw] pb-[2.4cqw] pt-0 text-ink"
+          style={{ transform: "translateZ(14px)" }}
+        >
+          <header className="-mx-[3cqw] mb-0 flex items-baseline justify-between gap-[2cqw] border-t-[1.4cqw] border-amber px-[3cqw] pt-[1.2cqw] text-[3.6cqw] uppercase leading-none tracking-[0.1em]">
+            <span className="min-w-0 truncate">Linear Wrapped</span>
+            <span className="shrink-0 tabular-nums">{recap.year}</span>
+          </header>
+
+          <div className="grid min-h-0 grid-cols-[17cqw_minmax(0,1fr)] items-center gap-[2.6cqw]">
+            <div className="crt relative aspect-square w-full overflow-hidden border-2 border-ink">
               <Ring value={recap.activeDays / daysInYear(recap.year)} label={`${recap.activeDays} active days of ${daysInYear(recap.year)}`}>
                 <div className="h-[62%] w-[62%] [&>svg]:h-full [&>svg]:w-full" aria-hidden>
                   {art}
                 </div>
               </Ring>
             </div>
-            <div className="min-w-0 flex-1 leading-none">
-              <p className="text-[clamp(0.8rem,3vw,1rem)] uppercase tracking-[0.18em] text-ink/70">Archetype</p>
-              <p className="text-[clamp(1.5rem,6.6vw,2.1rem)] uppercase leading-[0.95]">{recap.archetype.name}</p>
-              <p className="mt-1 text-[clamp(0.85rem,3.2vw,1.1rem)] leading-tight text-ink/80">{recap.archetype.tagline}</p>
+            <div className="min-h-0 min-w-0">
+              <p className="text-[2.8cqw] uppercase leading-none tracking-[0.16em] text-ink/70">Archetype</p>
+              <p className="mt-[0.6cqw] line-clamp-2 break-words text-[6.4cqw] uppercase leading-[0.92]">{recap.archetype.name}</p>
+              <p className="mt-[0.8cqw] line-clamp-3 break-words text-[3.7cqw] leading-[1.05] text-ink/80">{recap.archetype.description}</p>
             </div>
           </div>
-          <dl className="mt-[2%] grid grid-cols-3 gap-[2%] border-t-2 border-dashed border-ink/50 pt-[2%] text-left">
+
+          <dl className="grid grid-cols-3 gap-[2cqw] border-t-2 border-dashed border-ink/50 pt-[1.6cqw] text-left">
             <Cell k="Closed" v={recap.totalClosed.toLocaleString("en-US")} />
             <Cell k="Active days" v={String(recap.activeDays)} sub={`of ${daysInYear(recap.year)}`} />
             <Cell k="Streak" v={streak ? String(streak.days) : "-"} sub={streakSub} />
           </dl>
-          {/* Holographic seal */}
-          <motion.div aria-hidden className="absolute right-[3%] top-[14%] flex h-[17%] w-[12%] items-center justify-center border border-black/50 text-[clamp(0.8rem,3vw,1rem)] text-black/70" style={foilStyle}>
-            <span className="bg-white/40 px-0.5">{String(recap.year).slice(2)}</span>
-          </motion.div>
         </div>
+
+        {/* Holographic seal, on the sleeve above the label so it never covers text. */}
+        <motion.div aria-hidden className="absolute right-[7%] top-[22%] flex h-[11%] w-[11%] items-center justify-center border border-black/50 text-[3.4cqw] text-black/70" style={{ ...foilStyle, translateZ: 10 }}>
+          <span className="bg-white/40 px-0.5">{String(recap.year).slice(2)}</span>
+        </motion.div>
 
         {/* A light sheen over the plastic, following the pointer. */}
         <motion.div aria-hidden className="pointer-events-none absolute inset-0 rounded-[3%] mix-blend-overlay" style={{ backgroundImage: glare }} />
@@ -139,9 +150,9 @@ export function DiskCard({ recap }: { recap: Recap }) {
 function Cell({ k, v, sub }: { k: string; v: string; sub?: string }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[clamp(0.7rem,2.6vw,0.9rem)] uppercase tracking-[0.12em] text-ink/70">{k}</dt>
-      <dd className="text-[clamp(1.4rem,6vw,1.9rem)] leading-none tabular-nums">{v}</dd>
-      <dd className="h-3 text-[clamp(0.7rem,2.6vw,0.9rem)] leading-none text-ink/70">{sub}</dd>
+      <dt className="truncate text-[2.7cqw] uppercase leading-none tracking-[0.1em] text-ink/70">{k}</dt>
+      <dd className="mt-[0.4cqw] truncate text-[7cqw] leading-none tabular-nums">{v}</dd>
+      <dd className="mt-[0.4cqw] h-[3cqw] truncate text-[2.7cqw] leading-none text-ink/70">{sub}</dd>
     </div>
   );
 }
