@@ -29,8 +29,6 @@ export const DISK_NAME = "LINEAR WRAPPED";
 /** Lines the drive "prints" while loading, in order. Short enough for a 32-column screen. */
 export const LOAD_LINES = ['LOAD "LINEAR WRAPPED",8', "", "SEARCHING FOR LINEAR WRAPPED", "LOADING", "", "READY."] as const;
 
-export const EMPTY_LINES = ["*** LINEAR WRAPPED 2026 ***", "", "32K RAM  31743 BYTES FREE", "", "READY.", "INSERT THE FLOPPY DISK"] as const;
-
 export type Command = { kind: "run" } | { kind: "help" } | { kind: "unknown"; text: string };
 
 /** Enter on an empty line, or `RUN`/`START`/`GO`, signs in. `HELP`/`?` explains. Anything else is a (friendly) syntax error. */

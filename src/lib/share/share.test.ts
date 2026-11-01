@@ -228,19 +228,22 @@ test("summary renders the floppy disk collectible, not the plain layout", async 
     assert.match(json, /repeating-linear-gradient/, `${f} scanlines`);
     assert.match(json, /#ff6ec7/, `${f} holographic foil sticker`);
     assert.match(json, /disk-sigil/, `${f} sigil`);
-    assert.match(json, /System report/, `${f} report label`);
+    assert.match(json, /Linear Wrapped/, `${f} label title`);
+    assert.match(json, /Archetype/, `${f} label archetype band`);
+    assert.doesNotMatch(json, /#d8cfb3|LW-2026 Personal/, `${f} has no beige case`);
+    assert.doesNotMatch(json, /93,255,143|5dff8f/i, `${f} has no green phosphor`);
   }
 });
 
 test("the retro redesign bumps the image version and keeps old signed links working", () => {
-  assert.equal(IMAGE_VERSION, "pet1");
+  assert.equal(IMAGE_VERSION, "pet2");
   assert.ok(!LEGACY_IMAGE_VERSIONS.includes(IMAGE_VERSION));
-  // Links minted before versioning (no r) and under the previous holographic design (r=holo2) still resolve.
-  for (const ok of [null, "pet1", "holo2"]) assert.ok(isAcceptedVersion(ok), String(ok));
-  for (const bad of ["", "holo3", "PET1", "pet1&x=1", "../pet1"]) assert.ok(!isAcceptedVersion(bad), bad);
+  // Links minted before versioning (no r) and under the previous holographic design (r=holo2) and the previous retro design (r=pet1) still resolve.
+  for (const ok of [null, "pet2", "pet1", "holo2"]) assert.ok(isAcceptedVersion(ok), String(ok));
+  for (const bad of ["", "holo3", "PET2", "pet2&x=1", "../pet2", "pet3"]) assert.ok(!isAcceptedVersion(bad), bad);
   // Only the current design is cached forever; legacy and unversioned URLs revalidate.
-  assert.match(imageCacheControl("pet1"), /immutable/);
-  for (const old of [null, "holo2"]) assert.doesNotMatch(imageCacheControl(old), /immutable/);
+  assert.match(imageCacheControl("pet2"), /immutable/);
+  for (const old of [null, "pet1", "holo2"]) assert.doesNotMatch(imageCacheControl(old), /immutable/);
   // The token itself is untouched by the redesign.
   const snap = all().find((s) => s.c === "summary")!;
   assert.match(buildShareLink(snap, SECRET).path, /^\/s\/[\w-]+\.[\w-]+$/);

@@ -95,7 +95,7 @@ export function MonthChart({ monthly, peak }: { monthly: { month: number; count:
         <span className="text-base font-semibold normal-case tracking-normal text-ph tabular-nums">{plural(cur.count, "issue")}</span>
       </p>
       <div role="group" aria-label={`Issues closed per month: ${label}`} className="relative w-full touch-pan-y" onPointerMove={scrub}>
-        <svg viewBox={`0 0 ${W} ${H}`} className="block w-full overflow-visible" aria-hidden>
+        <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto block max-h-[28dvh] w-full overflow-visible" aria-hidden>
                     {[0.25, 0.5, 0.75, 1].map((t) => (
             <line key={t} x1={PAD_X} x2={W - PAD_X} y1={BASE - t * (BASE - TOP)} y2={BASE - t * (BASE - TOP)} stroke="var(--ph)" strokeOpacity={0.3} strokeDasharray="2 5" />
           ))}
@@ -109,7 +109,7 @@ export function MonthChart({ monthly, peak }: { monthly: { month: number; count:
           <motion.g animate={{ x: x(active) }} initial={false} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
             <line y1={TOP - 10} y2={BASE} stroke="var(--a1)" strokeOpacity={0.7} />
           </motion.g>
-          <motion.rect width={10} height={10} fill="#020703" stroke="var(--a1)" strokeWidth={3} initial={false} animate={{ x: x(active) - 5, y: y(cur.count) - 5 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} />
+          <motion.rect width={10} height={10} fill="#0a0912" stroke="var(--a1)" strokeWidth={3} initial={false} animate={{ x: x(active) - 5, y: y(cur.count) - 5 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} />
         </svg>
         <div className="absolute inset-0 flex">
           {monthly.map((m, i) => (

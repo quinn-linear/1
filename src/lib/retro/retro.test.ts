@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { CARD_IDS } from "../recap.ts";
 import { CARD_ACCENTS } from "../share/theme.ts";
-import { EMPTY_LINES, HELP_LINES, LOAD_LINES, SYNTAX_LINES, bootReducer, parseCommand, type BootPhase } from "./boot.ts";
+import { HELP_LINES, LOAD_LINES, SYNTAX_LINES, bootReducer, parseCommand, type BootPhase } from "./boot.ts";
+import { BOOT_LABEL, BOOT_LINES, BOOT_TITLE, LOGO_LINES, bootDuration, bootSchedule } from "./logo.ts";
 import { DIM_TEXT_ALPHA, PALETTE, contrastRatio, over } from "./palette.ts";
 import { MASTER_GAIN, MAX_EVENTS, MAX_SOUND_SECONDS, MIN_GAP_MS, allowSound, initialSoundEnabled, planSound, soundLength, type SoundName } from "./sound.ts";
 
@@ -67,18 +68,18 @@ test("terminal commands: Enter or RUN signs in, anything else is a friendly erro
 });
 
 test("terminal copy fits a 28-column screen", () => {
-  for (const line of [...EMPTY_LINES, ...LOAD_LINES, ...HELP_LINES, ...SYNTAX_LINES, "CONNECTING TO LINEAR...", "> HELP"]) assert.ok(line.length <= 28, line);
+  for (const line of [...LOAD_LINES, ...HELP_LINES, ...SYNTAX_LINES, "CONNECTING TO LINEAR...", "> HELP"]) assert.ok(line.length <= 28, line);
 });
 
 test("phosphor and case text meet WCAG contrast", () => {
   const dim = over(PALETTE.phosphor, DIM_TEXT_ALPHA, PALETTE.screen);
-  for (const fg of [PALETTE.phosphor, PALETTE.amber, dim]) assert.ok(contrastRatio(fg, PALETTE.screen) >= 7, `${fg} on screen`);
+  for (const fg of [PALETTE.phosphor, PALETTE.lavender, PALETTE.amber, dim]) assert.ok(contrastRatio(fg, PALETTE.screen) >= 7, `${fg} on screen`);
   assert.ok(contrastRatio(PALETTE.ink, PALETTE.case) >= 7, "ink on case");
-  assert.ok(contrastRatio("#020703", PALETTE.phosphor) >= 7, "inverted terminal button");
+  assert.ok(contrastRatio(PALETTE.screen, PALETTE.phosphor) >= 7, "inverted terminal button");
 });
 
-test("every card accent is one of the two phosphors", () => {
-  const allowed = new Set<string>([PALETTE.phosphor, PALETTE.amber]);
+test("every card accent is the lavender or amber accent", () => {
+  const allowed = new Set<string>([PALETTE.lavender, PALETTE.amber]);
   for (const id of CARD_IDS) for (const c of CARD_ACCENTS[id]) assert.ok(allowed.has(c), `${id} ${c}`);
 });
 
@@ -96,4 +97,35 @@ test("the supplied PET photo matches the numbers the terminal overlay is pinned 
   // The phone crop keeps the whole screen in view.
   const v = PET_VIEWS.tight;
   assert.ok(v.x <= s.x && v.y <= s.y && v.x + v.w >= s.x + s.w && v.y + v.h >= s.y + s.h);
+});
+
+test("the boot logo is a rectangle of block characters that fits beside the title", () => {
+  const widths = new Set(LOGO_LINES.map((l) => [...l].length));
+  assert.equal(widths.size, 1, "every row has the same width so the columns line up");
+  const [width] = widths;
+  assert.ok(width <= 14 && LOGO_LINES.length <= 6, "small enough for the PET screen");
+  const art = LOGO_LINES.join("");
+  assert.ok(/[█▀▄]/.test(art) && /[░▒]/.test(art), "solid blocks plus dithered shading");
+  assert.match(art, /^[ █▀▄░▒▓]+$/u, "only space and block characters");
+  // A circle: the top and bottom rows are narrower than the middle ones, and the middle rows span the full width.
+  const lit = (l: string) => [...l].filter((c) => c !== " ").length;
+  assert.ok(lit(LOGO_LINES[0]) < lit(LOGO_LINES[2]) && lit(LOGO_LINES[5]) < lit(LOGO_LINES[3]));
+  // The diagonal cuts: gaps inside the lower-left half of the disc, not just at its edge.
+  assert.ok(/█▀▄█/.test(LOGO_LINES.join("\n")) || /▀▄█▀▄/.test(LOGO_LINES.join("\n")));
+});
+
+test("boot text uses the exact phrase, and every boot line fits the screen columns", () => {
+  assert.equal(BOOT_TITLE, "Linear wrapped");
+  assert.equal(BOOT_LABEL, "Linear wrapped");
+  for (const line of [BOOT_TITLE, ...BOOT_LINES]) assert.ok(line.length <= 14, line);
+});
+
+test("boot lines reveal one after another, quickly; reduced motion or a skip shows them at once", () => {
+  const count = LOGO_LINES.length;
+  const delays = bootSchedule(count, false);
+  assert.equal(delays.length, count);
+  for (let i = 1; i < count; i++) assert.ok(delays[i] > delays[i - 1], "line by line");
+  assert.ok(bootDuration(count, false) <= 1000, "the whole boot is under a second");
+  assert.deepEqual(bootSchedule(count, true), new Array(count).fill(0));
+  assert.equal(bootDuration(count, true), 0);
 });

@@ -5,12 +5,12 @@
  */
 export function SignInButton({ href }: { href: string }) {
   return (
-    <div className="flex flex-col items-start gap-2">
+    <div className="flex flex-col items-start gap-1 sm:items-end">
       <a href={href} className="term-btn">
         <LinearMark />
-        Skip boot: sign in with Linear
+        <span>Skip boot: sign in with Linear</span>
       </a>
-      <p className="text-base text-ph/75">Read-only access, nothing stored.</p>
+      <p className="landing-tagline text-base text-ph/75">Read-only access, nothing stored.</p>
     </div>
   );
 }

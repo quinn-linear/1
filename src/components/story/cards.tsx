@@ -50,7 +50,7 @@ function Intro({ r }: { r: Recap }) {
         <Kicker>Hey {r.viewer.name}</Kicker>
       </Reveal>
       <Reveal>
-        <h1 className="text-[18vw] leading-[0.85] sm:text-[9.5rem]">
+        <h1 className="text-[min(18vw,14dvh)] leading-[0.85] sm:text-[min(9.5rem,17dvh)]">
           Your {r.year}
           <span className={`block ${sunny}`}>in Linear</span>
         </h1>
@@ -78,7 +78,7 @@ function Total({ r }: { r: Recap }) {
       </Reveal>
       <Reveal className="w-full">
         <Ring value={r.activeDays / daysInYear(r.year)} label={`${plural(r.totalClosed, "issue")} closed on ${plural(r.activeDays, "active day")}, out of ${daysInYear(r.year)} days in ${r.year}`} size={320}>
-          <Huge className={`text-[17vw] sm:text-[6.5rem] ${sunny}`}>
+          <Huge className={`text-[min(17vw,13dvh)] sm:text-[min(6.5rem,12dvh)] ${sunny}`}>
             <CountUp to={r.totalClosed} />
           </Huge>
           <p className="mt-2 font-mono text-sm uppercase tracking-[0.25em] text-ph/70">{r.totalClosed === 1 ? "issue" : "issues"}</p>
@@ -108,7 +108,7 @@ function Archetype({ r }: { r: Recap }) {
         </motion.div>
       </Reveal>
       <Reveal>
-        <Headline className={`text-[15vw] sm:text-8xl ${sunny}`}>{r.archetype.name}</Headline>
+        <Headline className={`text-[min(15vw,11dvh)] sm:text-8xl ${sunny}`}>{r.archetype.name}</Headline>
       </Reveal>
       <Reveal>
         <p className="text-xl font-medium tracking-tight text-ph/90 sm:text-3xl">{r.archetype.tagline}</p>
@@ -197,7 +197,7 @@ function Project({ r }: { r: Recap }) {
             <Headline className={`break-words ${sunny}`}>{p.name}</Headline>
           </Reveal>
           <Reveal>
-            <Huge className="text-[22vw] sm:text-[9rem]">
+            <Huge className="text-[min(22vw,16dvh)] sm:text-[min(9rem,16dvh)]">
               <CountUp to={p.closedCount} />
             </Huge>
           </Reveal>
@@ -337,10 +337,10 @@ function GotAway({ r }: { r: Recap }) {
         <>
           <Reveal>
             <p className="font-mono text-lg font-medium text-ph/70 sm:text-2xl">{o.identifier}</p>
-            <Headline className={`mt-2 break-words text-[9vw] sm:text-6xl ${sunny}`}>{o.title}</Headline>
+            <Headline className={`mt-2 break-words text-[min(9vw,7dvh)] sm:text-6xl ${sunny}`}>{o.title}</Headline>
           </Reveal>
           <Reveal>
-            <Huge className="text-[20vw] sm:text-[8rem]">
+            <Huge className="text-[min(20vw,15dvh)] sm:text-[min(8rem,14dvh)]">
               <CountUp to={o.ageDays} />
             </Huge>
           </Reveal>
@@ -373,7 +373,7 @@ function Label({ r }: { r: Recap }) {
       {l ? (
         <>
           <Reveal>
-            <Headline className={`break-words text-[16vw] sm:text-8xl ${sunny}`}>{l.name}</Headline>
+            <Headline className={`break-words text-[min(16vw,12dvh)] sm:text-8xl ${sunny}`}>{l.name}</Headline>
           </Reveal>
           {r.totalClosed > 0 && (
             <Reveal className="w-full">
@@ -412,12 +412,12 @@ function Comeback({ r }: { r: Recap }) {
       {c.status === "ok" ? (
         <>
           <Reveal>
-            <Huge className={`text-[24vw] sm:text-[9rem] ${sunny}`}>
+            <Huge className={`text-[min(24vw,18dvh)] sm:text-[min(9rem,16dvh)] ${sunny}`}>
               <CountUp to={c.burstCount} />
             </Huge>
           </Reveal>
           <Reveal>
-            <Headline className="text-[9vw] sm:text-5xl">
+            <Headline className="text-[min(9vw,7dvh)] sm:text-5xl">
               {c.burstCount === 1 ? "issue" : "issues"} in {plural(c.burstDays, "day")}.
             </Headline>
           </Reveal>
@@ -530,7 +530,7 @@ function Signature({ r }: { r: Recap }) {
       {g.status === "ok" ? (
         <>
           <Reveal>
-            <Headline className={`break-words text-[10vw] sm:text-6xl ${sunny}`}>
+            <Headline className={`break-words text-[min(10vw,8dvh)] sm:text-6xl ${sunny}`}>
               {g.project} + {g.label}
             </Headline>
           </Reveal>
@@ -571,13 +571,13 @@ function PhotoFinish({ r }: { r: Recap }) {
       </Reveal>
       {f ? (
         <>
-          <Reveal className="flex items-center gap-5">
+          <Reveal className="flex max-w-full items-center gap-3 sm:gap-5">
             <ClockFace time={f.time} />
-            <Huge className={`text-[18vw] sm:text-[7rem] ${sunny}`}>{f.time}</Huge>
+            <Huge className={`!text-[min(14vw,12dvh)] sm:!text-[min(7rem,13dvh)] ${sunny}`}>{f.time}</Huge>
           </Reveal>
           <Reveal>
             <p className="font-mono text-xs uppercase tracking-widest text-ph/70">The last thing you closed</p>
-            <Headline className="mt-2 break-words text-[8vw] sm:text-5xl">{f.title ?? "An issue"}</Headline>
+            <Headline className="mt-2 break-words text-[min(8vw,6dvh)] sm:text-5xl">{f.title ?? "An issue"}</Headline>
           </Reveal>
           <Reveal className="w-full">
             <FinishLine year={r.year} date={f.date} label={`Last completion of ${r.year}: ${formatDay(f.date)} at ${f.time}`} />
@@ -614,17 +614,19 @@ function Row({ k, v }: { k: string; v: string }) {
 function Summary({ r }: { r: Recap }) {
   const none = "n/a";
   return (
-    <div className="flex w-full flex-col items-center gap-4">
-      <Reveal>
+    <>
+      <Reveal className="mx-auto">
         <Kicker>
           {r.viewer.name}&apos;s {r.year} in Linear
         </Kicker>
       </Reveal>
-      <DiskCard recap={r} />
-      <Reveal>
+      <Reveal className="mx-auto flex w-full justify-center">
+        <DiskCard recap={r} />
+      </Reveal>
+      <Reveal className="mx-auto">
         <p className="text-center text-xs text-ph/70">Tilt the disk, or touch and drag. Download it from Share.</p>
       </Reveal>
-      <Reveal className="w-full max-w-sm">
+      <Reveal className="mx-auto w-full max-w-sm">
         <details className="panel px-4 py-2 text-left" data-no-nav>
           <summary className="cursor-pointer py-1 font-mono text-sm uppercase tracking-widest text-ph/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber">
             All your numbers
@@ -646,14 +648,14 @@ function Summary({ r }: { r: Recap }) {
         </details>
       </Reveal>
       {r.truncated && <Footnote>Linear returned more issues than we fetch, so counts may be undercounts.</Footnote>}
-      <Reveal>
+      <Reveal className="mx-auto">
         <form action="/api/auth/logout" method="post">
           <button type="submit" className="panel px-5 py-2 text-sm font-medium text-ph/80 transition hover:text-ph focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber">
             Sign out
           </button>
         </form>
       </Reveal>
-    </div>
+    </>
   );
 }
 

@@ -123,12 +123,13 @@ export function SoundProvider({ children }: { children: ReactNode }) {
   return <SoundContext.Provider value={api}>{children}</SoundContext.Provider>;
 }
 
-/** Keycap-style mute switch. Always visible wherever sound can play. */
-export function SoundToggle({ className = "" }: { className?: string }) {
+/** Mute switch, always visible wherever sound can play. `screen` styles it as an on-screen button, `key` as a keycap on the hardware. */
+export function SoundToggle({ className = "", variant = "key" }: { className?: string; variant?: "key" | "screen" }) {
   const { enabled, toggle } = useSound();
+  const off = variant === "key" ? "bg-ink/30" : "bg-ph/40";
   return (
-    <button type="button" onClick={toggle} aria-pressed={enabled} aria-label="Sound effects" className={`keycap ${className}`}>
-      <span aria-hidden className={`mr-1.5 inline-block h-2 w-2 ${enabled ? "bg-[var(--led)] shadow-[0_0_6px_var(--led)]" : "bg-ink/30"}`} />
+    <button type="button" onClick={toggle} aria-pressed={enabled} aria-label="Sound effects" className={`${variant === "key" ? "keycap" : "term-btn"} ${className}`}>
+      <span aria-hidden className={`mr-1.5 inline-block h-2 w-2 ${enabled ? "bg-[var(--led)] shadow-[0_0_6px_var(--led)]" : off}`} />
       SND {enabled ? "ON" : "OFF"}
     </button>
   );
