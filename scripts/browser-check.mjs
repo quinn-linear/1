@@ -2,10 +2,15 @@
 /**
  * Real-browser checks against a running server (see README, "Browser checks").
  *   PREVIEW_FIXTURES=1 npm run dev   (or `npm start` after a build)
- *   CHROME=/path/to/chrome BASE=http://localhost:3000 OUT=./shots node scripts/browser-check.mjs [landing|drag|story|disk|all]
+ *   CHROME=/path/to/chrome BASE=http://localhost:3000 OUT=./shots node scripts/browser-check.mjs [landing|boot|drag|story|print|dock|fullscreen|art|all]
  * Drives headless Chrome over the DevTools protocol (no extra dependencies) and
- * fails (exit 1) if the landing scrolls, the dragged floppy is ever covered, a
- * story card is clipped or needs scrolling, or the floppy label's text overlaps.
+ * fails (exit 1) if the landing scrolls or has button clutter, the dragged
+ * cassette is ever covered or a drop does the wrong thing (grant, miss, keyboard,
+ * tap, duplicate redirects), a story card is clipped, the dock misbehaves, the
+ * fullscreen cases (supported, rejected, unsupported, change, exit) misbehave,
+ * an archetype's art is wrong or missing, or the disk label's text overlaps.
+ * Start the server with fake LINEAR_CLIENT_ID/LINEAR_CLIENT_SECRET so the
+ * sign-in route redirects to Linear's authorize URL (which is only recorded).
  */
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
@@ -39,7 +44,7 @@ const check = (ok, msg) => {
 };
 
 const dir = mkdtempSync(join(tmpdir(), "chrome-"));
-const chrome = spawn(CHROME, ["--headless=new", "--no-sandbox", "--disable-gpu", `--remote-debugging-port=${PORT}`, `--user-data-dir=${dir}`, "about:blank"], { stdio: "ignore" });
+const chrome = spawn(CHROME, ["--headless=new", "--no-sandbox", "--disable-gpu", "--no-proxy-server", `--remote-debugging-port=${PORT}`, `--user-data-dir=${dir}`, "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function connect() {
@@ -58,8 +63,10 @@ const ws = new WebSocket(await connect());
 await new Promise((r) => (ws.onopen = r));
 let id = 0;
 const pending = new Map();
+const requests = [];
 ws.onmessage = (m) => {
   const msg = JSON.parse(m.data);
+  if (msg.method === "Network.requestWillBeSent") requests.push(msg.params.request.url);
   if (msg.id && pending.has(msg.id)) {
     const { resolve, reject } = pending.get(msg.id);
     pending.delete(msg.id);
@@ -74,6 +81,7 @@ const send = (method, params = {}) => new Promise((resolve, reject) => {
 });
 await send("Page.enable");
 await send("Runtime.enable");
+await send("Network.enable");
 
 const evaluate = async (expr) => {
   const r = await send("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true });
@@ -87,7 +95,8 @@ const viewport = (name, extra = {}) => {
 };
 const go = async (path, { reduced = false } = {}) => {
   await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: reduced ? "reduce" : "no-preference" }] });
-  await send("Page.navigate", { url: BASE + path });
+  const nav = await send("Page.navigate", { url: BASE + path });
+  if (nav.errorText) console.log("navigate error:", nav.errorText, BASE + path);
   for (let i = 0; i < 100; i++) {
     if (await evaluate(`document.readyState === "complete"`)) break;
     await sleep(100);
@@ -104,82 +113,389 @@ const shot = async (name) => {
 };
 const mouse = (type, x, y, extra = {}) => send("Input.dispatchMouseEvent", { type, x, y, button: "left", buttons: type === "mouseReleased" ? 0 : 1, clickCount: 1, ...extra });
 
+const authRequests = () => requests.filter((u) => u.includes("/api/auth/linear") && !u.includes("callback")).length;
+
 async function landing() {
   for (const name of Object.keys(VIEWPORTS)) {
     await viewport(name);
     await go("/");
+    if (!(await evaluate(`!!document.querySelector("main")`))) {
+      console.log("page did not render <main>:", await evaluate(`location.href + " | " + document.title + " | " + document.body.innerText.slice(0, 300)`));
+      await shot(`landing-broken-${name}`);
+    }
     const r = await evaluate(`(() => {
       const de = document.documentElement, main = document.querySelector("main");
       const vis = (el) => { if (!el) return false; const b = el.getBoundingClientRect(); return b.width > 0 && b.height > 0 && b.left >= -1 && b.top >= -1 && b.right <= innerWidth + 1 && b.bottom <= innerHeight + 1; };
-      const keys = [...document.querySelectorAll(".dock-keys button")];
+      const buttons = [...document.querySelectorAll("button")].filter((b) => !b.hasAttribute("data-cassette") && b.getBoundingClientRect().width > 0);
+      const text = document.body.innerText;
       return {
         pageScroll: de.scrollHeight - innerHeight, mainScroll: main.scrollHeight - main.clientHeight,
-        h1: vis(document.querySelector("h1")), pet: vis(document.querySelector(".pet-view")), drive: vis(document.querySelector(".dock-art")),
-        floppy: vis(document.querySelector("[data-floppy]")), keys: keys.length === 4 && keys.every(vis),
-        signin: vis([...document.querySelectorAll("a")].find((a) => /sign in with linear/i.test(a.textContent))),
+        h1: vis(document.querySelector("h1")), pet: vis(document.querySelector(".pet-view")), cassette: vis(document.querySelector("[data-cassette]")),
+        signin: vis([...document.querySelectorAll("a")].find((a) => /sign in without the cassette/i.test(a.textContent))),
+        otherButtons: buttons.map((b) => b.textContent.trim()), old: /insert floppy|eject|return|drive 8|floppy/i.test(text),
+        overlapsPet: (() => { const c = document.querySelector("[data-cassette]").getBoundingClientRect(), p = document.querySelector(".pet-view").getBoundingClientRect(); return c.left < p.right && p.left < c.right && c.top < p.bottom && p.top < c.bottom; })(),
       };
     })()`);
-    const fits = r.pageScroll <= 0 && r.mainScroll <= 0;
-    check(fits, `landing ${name}: no scrolling (page ${r.pageScroll}, main ${r.mainScroll})`);
-    check(r.h1 && r.pet && r.drive && r.floppy && r.keys && r.signin, `landing ${name}: title, computer, drive, floppy, keys and sign-in all inside the viewport ${JSON.stringify(r)}`);
+    check(r.pageScroll <= 0 && r.mainScroll <= 0, `landing ${name}: no scrolling (page ${r.pageScroll}, main ${r.mainScroll})`);
+    check(r.h1 && r.pet && r.cassette && r.signin, `landing ${name}: title, computer, cassette and the quiet sign-in link all inside the viewport ${JSON.stringify(r)}`);
+    check(r.otherButtons.length <= 1 && !r.old, `landing ${name}: no row of helper buttons and no floppy/drive/eject/return left (${JSON.stringify(r.otherButtons)})`);
+    check(!r.overlapsPet, `landing ${name}: the resting cassette does not cover the computer`);
     await shot(`landing-${name}`);
   }
+}
+
+async function dust() {
+  for (const name of ["desktop", "laptop", "phone", "phone-landscape"]) {
+    await viewport(name);
+    await go("/");
+    await sleep(800);
+    const r = await evaluate(`(() => {
+      const c = document.querySelector("[data-dust]"), p = document.querySelector(".pet-view").getBoundingClientRect(), b = c.getBoundingClientRect();
+      const z = document.querySelector(".pet-screen-zone.crt").getBoundingClientRect();
+      const cs = getComputedStyle(c);
+      const hits = [[.2,.2],[.5,.5],[.8,.8]].map(([a, d]) => document.elementFromPoint(b.left + b.width * a, b.top + b.height * d)).filter(Boolean);
+      const px = (() => { const x = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < x.length; i += 4) if (x[i] > 8) n++; return n; })();
+      const inView = b.right > p.left + 4 && b.left < p.right - 4 && b.bottom > p.top + 4 && b.top < p.bottom - 4;
+      const clipW = Math.max(0, Math.min(b.right, p.right) - Math.max(b.left, p.left)), clipH = Math.max(0, Math.min(b.bottom, p.bottom) - Math.max(b.top, p.top));
+      return { aria: c.getAttribute("aria-hidden"), events: cs.pointerEvents, inView, w: b.width | 0, h: b.height | 0, clipped: Math.round(100 * clipW * clipH / (b.width * b.height)), litPixels: px, awayFromScreen: b.right <= z.left + 1 || b.left >= z.right - 1 || b.bottom <= z.top || b.top >= z.bottom, hitsDust: hits.some((h) => h === c), cassetteTop: !!document.querySelector("[data-cassette]") };
+    })()`);
+    check(r.aria === "true" && r.events === "none" && !r.hitsDust && r.awayFromScreen, `dust ${name}: aria-hidden, pointer-events none, never the hit target, clear of the CRT ${JSON.stringify(r)}`);
+    if (r.inView && r.clipped > 30) check(r.litPixels > 0 && r.litPixels < r.w * r.h * 0.05 * 4, `dust ${name}: some motes are drawn but sparse (${r.litPixels} lit px in ${r.w}x${r.h})`);
+    else console.log(`note: dust ${name}: the lamp beam is cropped out of this view (${r.clipped}% visible); nothing to see`);
+    await shot(`dust-${name}`);
+  }
+  // Drifts: two frames a few seconds apart differ; reduced motion is still.
+  await viewport("desktop");
+  await go("/");
+  const grab = () => evaluate(`document.querySelector("[data-dust]").toDataURL()`);
+  const a = await grab();
+  await sleep(2500);
+  const b = await grab();
+  check(a !== b, "dust: the motes drift over time");
+  await go("/", { reduced: true });
+  const c = await grab();
+  await sleep(1500);
+  const d = await grab();
+  check(c === d && c.length > 200, "dust: reduced motion draws a still frame (no animation)");
+  // Hidden tab pauses the loop.
+  await go("/");
+  await evaluate(`Object.defineProperty(document, "hidden", { value: true, configurable: true }); document.dispatchEvent(new Event("visibilitychange"))`);
+  const e = await grab();
+  await sleep(1500);
+  check(e === (await grab()), "dust: nothing is drawn while the tab is hidden");
+  // The cassette still drags with the dust in place.
+  await go("/");
+  const pos = await evaluate(centers);
+  await mouse("mousePressed", pos.fx, pos.fy);
+  await mouse("mouseMoved", pos.fx - 200, pos.fy - 120);
+  await mouse("mouseMoved", pos.fx - 260, pos.fy - 200);
+  check((await evaluate(`document.querySelector("[data-cassette]").dataset.state`)) === "dragging", "dust: a drag across the lamp area still moves the cassette");
+  await mouse("mouseReleased", pos.fx - 260, pos.fy - 200);
 }
 
 async function boot() {
   await viewport("desktop");
   await go("/");
-  await sleep(1200);
+  await sleep(1500);
   const r = await evaluate(`(() => {
     const g = document.querySelector('[role=group][aria-label="Linear wrapped"]');
-    const pre = g?.querySelector("pre");
-    return { label: !!g, art: pre?.getAttribute("aria-hidden"), title: [...g.querySelectorAll("p")].some((p) => p.textContent === "Linear wrapped"), rows: pre?.querySelectorAll("span").length };
+    const svg = g?.querySelector("svg");
+    const box = svg?.getBoundingClientRect();
+    return { label: !!g, art: svg?.getAttribute("aria-hidden"), title: [...g.querySelectorAll("p")].some((p) => p.textContent === "Linear wrapped"), bands: svg?.querySelectorAll("g.boot-line").length, square: box && Math.abs(box.width - box.height) < 1, fill: getComputedStyle(svg.querySelector("polygon")).fill, shown: [...svg.querySelectorAll("g.boot-line")].every((e) => getComputedStyle(e).opacity === "1") };
   })()`);
-  check(r.label && r.art === "true" && r.title && r.rows === 6, `boot: named group, aria-hidden art, exact "Linear wrapped" title ${JSON.stringify(r)}`);
+  check(r.label && r.art === "true" && r.title && r.bands === 17 && r.square && r.shown, `boot: named group, aria-hidden square 17-band mark, exact "Linear wrapped" title, all bands revealed ${JSON.stringify(r)}`);
   await shot("boot-desktop");
+  await evaluate(`document.querySelector(".boot").scrollIntoView()`);
+  // The mark mid-reveal: some bands visible, some not (line by line).
+  await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "no-preference" }] });
+  await send("Page.navigate", { url: BASE + "/" });
+  for (let i = 0; i < 100 && !(await evaluate(`!!document.querySelector("svg g.boot-line")`).catch(() => false)); i++) await sleep(15);
+  await sleep(380);
+  const mid = await evaluate(`(() => { const o = [...document.querySelectorAll("svg g.boot-line")].map((e) => getComputedStyle(e).opacity); return { on: o.filter((v) => v === "1").length, off: o.filter((v) => v === "0").length }; })()`);
+  check(mid.on > 0 && mid.off > 0, `boot: the mark reveals band by band (mid-reveal ${JSON.stringify(mid)})`);
+  await shot("boot-mid-reveal");
   await go("/", { reduced: true });
-  const op = await evaluate(`getComputedStyle(document.querySelector(".boot-line")).animationName`);
-  check(op === "none", `boot: reduced motion shows every line immediately (animation: ${op})`);
+  const op = await evaluate(`[...document.querySelectorAll(".boot-line")].every((e) => getComputedStyle(e).animationName === "none")`);
+  check(op, "boot: reduced motion shows every band and line immediately");
+  await viewport("phone");
+  await go("/");
+  await sleep(1500);
+  const fit = await evaluate(`(() => { const z = document.querySelector(".pet-screen-zone.crt").getBoundingClientRect(), b = document.querySelector(".boot").getBoundingClientRect(); return b.left >= z.left - 1 && b.right <= z.right + 1 && b.top >= z.top - 1 && b.bottom <= z.bottom + 1; })()`);
+  check(fit, "boot: the logo and text fit inside the PET screen on a phone");
+  await shot("boot-phone");
 }
+
+const cassetteState = `(() => { const c = document.querySelector("[data-cassette]"), p = document.querySelector("[data-pet]"); return { cassette: c.dataset.state, pet: p.dataset.state, screen: document.querySelector(".pet-terminal").innerText.trim() }; })()`;
+const cassetteTop = `(() => { const b = document.querySelector("[data-cassette]"), r = b.getBoundingClientRect(); const pts = [[.5,.5],[.5,.15],[.2,.8],[.8,.8]]; return pts.every(([a, c]) => document.elementFromPoint(r.left + r.width * a, r.top + r.height * c)?.closest("[data-cassette]") === b) && getComputedStyle(b).zIndex === "2147483647"; })()`;
+const centers = `(() => { const f = document.querySelector("[data-cassette]").getBoundingClientRect(), p = document.querySelector(".pet-screen-zone.crt").getBoundingClientRect(); return { fx: f.left + f.width / 2, fy: f.top + f.height / 2, px: p.left + p.width / 2, py: p.top + p.height / 2 }; })()`;
 
 async function drag() {
   for (const name of ["desktop", "phone", "phone-landscape"]) {
     await viewport(name);
     await go("/");
-    const pos = await evaluate(`(() => { const f = document.querySelector("[data-floppy]").getBoundingClientRect(), s = document.querySelector(".dock-art").getBoundingClientRect(); return { fx: f.left + f.width / 2, fy: f.top + f.height / 2, sx: s.left + s.width / 2, sy: s.top + s.height * 0.3 }; })()`);
-    check(await evaluate(`document.querySelector("[data-floppy]").parentElement === document.body`), `drag ${name}: floppy is rendered on document.body, outside every clipping/stacking context`);
+    const pos = await evaluate(centers);
+    check(await evaluate(`document.querySelector("[data-cassette]").parentElement === document.body`), `drag ${name}: cassette is on document.body, outside every clipping/stacking context`);
+    const before = authRequests();
     await mouse("mousePressed", pos.fx, pos.fy);
-    let allTop = true;
+    let allTop = true, glowedOver = false, dimWhileFar = true;
     for (let i = 1; i <= 14; i++) {
-      const x = pos.fx + ((pos.sx - pos.fx) * i) / 14, y = pos.fy + ((pos.sy - pos.fy) * i) / 14;
+      const x = pos.fx + ((pos.px - pos.fx) * i) / 14, y = pos.fy + ((pos.py - pos.fy) * i) / 14;
       await mouse("mouseMoved", x, y);
-      await sleep(30);
-      const top = await evaluate(`(() => { const b = document.querySelector("[data-floppy]"), r = b.getBoundingClientRect(); const pts = [[.5,.5],[.5,.15],[.2,.8],[.8,.8]]; return pts.every(([a, c]) => document.elementFromPoint(r.left + r.width * a, r.top + r.height * c)?.closest("[data-floppy]") === b) && b.dataset.state === "dragging" && getComputedStyle(b).zIndex === "2147483647"; })()`);
-      allTop &&= top;
+      await sleep(40);
+      allTop &&= await evaluate(cassetteTop);
+      const st = await evaluate(cassetteState);
+      if (i === 1 && st.pet !== "idle") dimWhileFar = false;
+      if (i === 14) glowedOver = st.pet === "hover" && st.cassette === "dragging";
     }
-    await shot(`drag-mid-${name}`);
-    check(allTop, `drag ${name}: floppy stays the topmost element at every point of the drag (over the drive and the computer)`);
-    await mouse("mouseReleased", pos.sx, pos.sy);
-    for (const t of [100, 300, 600, 1000]) {
-      await sleep(t === 100 ? 100 : 250);
-      const top = await evaluate(`(() => { const b = document.querySelector("[data-floppy]"), r = b.getBoundingClientRect(); return r.width > 0 && document.elementFromPoint(r.left + r.width / 2, r.top + r.height * 0.6) === b.querySelector("svg") || document.elementFromPoint(r.left + r.width / 2, r.top + r.height * 0.6)?.closest("[data-floppy]") === b; })()`);
-      check(top, `drag ${name}: floppy still on top ${t}ms into insertion`);
-    }
-    await sleep(800);
-    const fin = await evaluate(`(() => { const b = document.querySelector("[data-floppy]"), r = b.getBoundingClientRect(), s = document.querySelector(".dock-art").getBoundingClientRect(); return { state: b.dataset.state, visible: r.width > 0 && r.top >= 0 && r.bottom <= innerHeight, insideDrive: r.left >= s.left - 2 && r.right <= s.right + 2 && r.top >= s.top - 2 }; })()`);
-    check(fin.state === "seated" && fin.visible && fin.insideDrive, `drag ${name}: seated in the drive and fully visible ${JSON.stringify(fin)}`);
-    await shot(`drag-seated-${name}`);
-    await sleep(2800);
-    const ready = await evaluate(`!!document.querySelector('[role=log] input')`);
-    check(ready, `drag ${name}: boot leads on to the RUN prompt`);
-    await shot(`ready-${name}`);
-    // A short drag that doesn't reach the slot springs back.
-    await go("/");
-    await mouse("mousePressed", pos.fx, pos.fy);
-    await mouse("mouseMoved", pos.fx + 40, pos.fy + 5);
-    await mouse("mouseReleased", pos.fx + 40, pos.fy + 5);
     await sleep(900);
-    check((await evaluate(`document.querySelector("[data-floppy]").dataset.state`)) === "resting", `drag ${name}: a drag that misses the slot returns the disk`);
+    await shot(`drag-over-${name}`);
+    check(allTop, `drag ${name}: cassette stays the topmost element all the way over the computer`);
+    check(glowedOver && dimWhileFar, `drag ${name}: the computer glows only while the cassette is over it (hover state ${glowedOver})`);
+    await mouse("mouseReleased", pos.px, pos.py);
+    await sleep(150);
+    const granted = await evaluate(cassetteState);
+    check(granted.pet === "granted" && /ACCESS GRANTED/.test(granted.screen), `drag ${name}: release over the computer flashes exactly ACCESS GRANTED ${JSON.stringify(granted)}`);
+    await sleep(300);
+    await shot(`granted-${name}`);
+    const screen = await evaluate(`(() => { const z = document.querySelector(".pet-screen-zone.crt").getBoundingClientRect(), t = document.querySelector(".access-granted").getBoundingClientRect(); return t.left >= z.left && t.right <= z.right && t.top >= z.top && t.bottom <= z.bottom; })()`);
+    check(screen, `drag ${name}: the message fits inside the CRT`);
+    // Double activation while granted must not start a second redirect.
+    await evaluate(`document.querySelector("[data-cassette]").click()`);
+    await mouse("mousePressed", pos.px, pos.py);
+    await mouse("mouseReleased", pos.px, pos.py);
+    await sleep(2200);
+    check(authRequests() - before === 1, `drag ${name}: exactly one sign-in redirect started (${authRequests() - before})`);
+  }
+  // Redirect target: the real Linear authorize URL, read-only, with state.
+  const lin = requests.find((u) => u.startsWith("https://linear.app/oauth/authorize"));
+  if (lin) {
+    const q = new URL(lin).searchParams;
+    check(q.get("scope") === "read" && !!q.get("state") && q.get("response_type") === "code", `authorize URL is read-only with state (${lin.slice(0, 90)}...)`);
+  } else console.log("note: no linear.app authorize request seen (start the server with fake LINEAR_CLIENT_ID/SECRET to check it)");
+
+  for (const name of ["desktop", "phone"]) {
+    await viewport(name);
+    await go("/");
+    const pos = await evaluate(centers);
+    const before = authRequests();
+    // A drop beside the computer resets and signs nobody in.
+    await mouse("mousePressed", pos.fx, pos.fy);
+    await mouse("mouseMoved", pos.fx + 30, pos.fy + 4);
+    await mouse("mouseMoved", pos.fx + 60, pos.fy + 8);
+    await mouse("mouseReleased", pos.fx + 60, pos.fy + 8);
+    await sleep(1000);
+    const st = await evaluate(cassetteState);
+    const back = await evaluate(`(() => { const c = document.querySelector("[data-cassette]").getBoundingClientRect(); return Math.abs(c.left + c.width / 2 - ${pos.fx}) < 2 && Math.abs(c.top + c.height / 2 - ${pos.fy}) < 2; })()`);
+    check(st.cassette === "resting" && st.pet === "idle" && back && authRequests() === before, `drag ${name}: a drop outside the computer springs back, no glow, no sign-in ${JSON.stringify(st)}`);
+  }
+
+  // Keyboard: Tab to the cassette, Enter and Space each grant once.
+  for (const key of ["Enter", " "]) {
+    await viewport("desktop");
+    await go("/");
+    const before = authRequests();
+    const label = await evaluate(`(() => { for (let i = 0; i < 12 && !document.activeElement?.hasAttribute("data-cassette"); i++) { document.activeElement?.blur?.(); } return document.querySelector("[data-cassette]").getAttribute("aria-label"); })()`);
+    check(/drag it onto the computer/i.test(label) && /enter or space/i.test(label), `keyboard: the cassette's accessible name explains drag, Enter and Space (${label.slice(0, 60)}...)`);
+    for (let i = 0; i < 12; i++) {
+      await send("Input.dispatchKeyEvent", { type: "keyDown", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 });
+      await send("Input.dispatchKeyEvent", { type: "keyUp", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 });
+      if (await evaluate(`document.activeElement?.hasAttribute("data-cassette")`)) break;
+    }
+    check(await evaluate(`document.activeElement?.hasAttribute("data-cassette")`), "keyboard: Tab reaches the cassette");
+    await shot("cassette-focus");
+    const ring = await evaluate(`(() => { const s = getComputedStyle(document.activeElement); return { style: s.outlineStyle, color: s.outlineColor }; })()`);
+    check(ring.style !== "none" && !/255, 180, 58/.test(ring.color), `keyboard: a visible lavender focus ring, not the old yellow rectangle (${JSON.stringify(ring)})`);
+    const code = key === " " ? "Space" : "Enter";
+    await send("Input.dispatchKeyEvent", { type: "keyDown", key, code, text: key === "Enter" ? "\r" : " ", windowsVirtualKeyCode: key === "Enter" ? 13 : 32 });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode: key === "Enter" ? 13 : 32 });
+    await sleep(200);
+    const st = await evaluate(cassetteState);
+    check(st.pet === "granted" && /ACCESS GRANTED/.test(st.screen), `keyboard: ${code} grants access ${JSON.stringify(st)}`);
+    await sleep(2200);
+    check(authRequests() - before === 1, `keyboard: ${code} starts exactly one sign-in redirect`);
+  }
+
+  // Touch tap (phone): the same grant.
+  await viewport("phone");
+  await go("/");
+  {
+    const before = authRequests();
+    const pos = await evaluate(centers);
+    await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: pos.fx, y: pos.fy }] });
+    await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await sleep(250);
+    const st = await evaluate(cassetteState);
+    check(st.pet === "granted" && /ACCESS GRANTED/.test(st.screen), `touch: a tap grants access ${JSON.stringify(st)}`);
+    await sleep(2200);
+    check(authRequests() - before === 1, "touch: a tap starts exactly one sign-in redirect");
+  }
+
+  // Reduced motion: no animated flash, still grants.
+  await viewport("desktop");
+  await go("/", { reduced: true });
+  await evaluate(`document.querySelector("[data-cassette]").click()`);
+  await sleep(200);
+  const rm = await evaluate(`({ anim: getComputedStyle(document.querySelector(".access-granted")).animationName, float: getComputedStyle(document.querySelector(".cassette-float")).animationName })`);
+  check(rm.anim === "none" && rm.float === "none", `reduced motion: no glow animation and no floating (${JSON.stringify(rm)})`);
+  await sleep(1500);
+}
+
+const dockInfo = `(() => {
+  const dock = document.querySelector(".dock-pill"), fit = document.querySelector("[data-fit-scale]");
+  const d = dock.getBoundingClientRect(), f = fit.getBoundingClientRect();
+  const btns = [...dock.querySelectorAll("button")].map((b) => { const r = b.getBoundingClientRect(); return { label: b.getAttribute("aria-label"), w: r.width, h: r.height, disabled: b.disabled }; });
+  return { inView: d.left >= 0 && d.right <= innerWidth && d.bottom <= innerHeight, clear: d.top >= f.bottom - 1, h: d.height, btns, safe: getComputedStyle(dock.parentElement).paddingBottom };
+})()`;
+
+async function dock() {
+  for (const name of Object.keys(VIEWPORTS)) {
+    await viewport(name);
+    await go("/preview/full?card=intro", { reduced: true });
+    let d = await evaluate(dockInfo);
+    const min = VIEWPORTS[name][1] <= 520 ? 36 : 44;
+    check(d.inView && d.clear, `dock ${name}: compact, fully on screen and below the card, not covering it (height ${d.h | 0}px)`);
+    check(d.btns.every((b) => b.w >= min - 0.5 && b.h >= min - 0.5), `dock ${name}: every control is at least ${min}px (${d.btns.map((b) => `${b.label}:${b.w | 0}`).join(", ")})`);
+    check(d.btns.find((b) => /previous/i.test(b.label))?.disabled && !d.btns.find((b) => /next/i.test(b.label))?.disabled, `dock ${name}: Prev disabled on the first card, Next enabled`);
+    if (["desktop", "phone", "phone-landscape"].includes(name)) await shot(`dock-${name}`);
+    await go("/preview/full?card=summary", { reduced: true });
+    d = await evaluate(dockInfo);
+    check(!d.btns.find((b) => /previous/i.test(b.label))?.disabled && d.btns.find((b) => /next/i.test(b.label))?.disabled, `dock ${name}: Next disabled on the last card, Prev enabled`);
+    check(d.inView && d.clear, `dock ${name}: summary card clear of the dock`);
+  }
+  // Keyboard focus + tooltip.
+  await viewport("desktop");
+  await go("/preview/full?card=peak", { reduced: true });
+  for (let i = 0; i < 40; i++) {
+    await send("Input.dispatchKeyEvent", { type: "keyDown", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 });
+    if (await evaluate(`document.activeElement?.getAttribute("aria-label") === "Next card"`)) break;
+  }
+  const f = await evaluate(`(() => { const e = document.activeElement, s = getComputedStyle(e), t = getComputedStyle(e, "::after"); return { label: e.getAttribute("aria-label"), outline: s.outlineStyle + " " + s.outlineColor, tip: t.content, tipOpacity: t.opacity }; })()`);
+  check(f.label === "Next card" && /solid/.test(f.outline) && !/255, 180, 58/.test(f.outline), `dock: keyboard focus ring is lavender and visible (${f.outline})`);
+  check(/Next/.test(f.tip) && f.tipOpacity === "1", `dock: the tooltip shows on keyboard focus (${f.tip})`);
+  await shot("dock-focus-tooltip");
+}
+
+const FS_STUB = (mode) => `(() => {
+  window.__fs = { requests: 0, exits: 0 };
+  const mode = ${JSON.stringify(mode)};
+  let current = null;
+  const set = (v) => { current = v; document.dispatchEvent(new Event("fullscreenchange")); };
+  Object.defineProperty(document, "fullscreenElement", { get: () => current, configurable: true });
+  window.__esc = () => set(null);
+  if (mode === "unsupported") {
+    Object.defineProperty(document, "fullscreenEnabled", { value: false, configurable: true });
+    Element.prototype.requestFullscreen = undefined;
+    return;
+  }
+  Object.defineProperty(document, "fullscreenEnabled", { value: true, configurable: true });
+  Element.prototype.requestFullscreen = function () {
+    window.__fs.requests++;
+    if (mode === "rejected") return Promise.reject(new TypeError("Permissions check failed"));
+    set(this);
+    return Promise.resolve();
+  };
+  document.exitFullscreen = () => { window.__fs.exits++; set(null); return Promise.resolve(); };
+})()`;
+
+async function fullscreen() {
+  const run = async (mode, path, fn) => {
+    const { identifier } = await send("Page.addScriptToEvaluateOnNewDocument", { source: FS_STUB(mode) });
+    await viewport("desktop");
+    await go(path, { reduced: true });
+    await fn();
+    await send("Page.removeScriptToEvaluateOnNewDocument", { identifier });
+  };
+  const fsBtn = `document.querySelector('.dock-pill button[aria-label="Full screen"]')`;
+  const exitBtn = `document.querySelector('button[aria-label="Exit full screen"]')`;
+
+  await run("supported", "/preview/full?card=intro", async () => {
+    check(await evaluate(`!!${fsBtn}`), "fullscreen supported: the dock offers a Full screen control");
+    check(await evaluate(`${fsBtn}.getAttribute("aria-pressed") === "false" && !${exitBtn}`), "fullscreen supported: starts out of full screen, no X");
+    await evaluate(`${fsBtn}.click()`);
+    await sleep(200);
+    check(await evaluate(`window.__fs.requests === 1 && ${fsBtn}.getAttribute("aria-pressed") === "true" && !!${exitBtn}`), "fullscreen supported: the click enters full screen and a visible X appears");
+    const vis = await evaluate(`(() => { const r = ${exitBtn}.getBoundingClientRect(); return r.width >= 36 && r.right <= innerWidth && r.top >= 0 && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === ${exitBtn} || ${exitBtn}.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); })()`);
+    check(vis, "fullscreen supported: the X is on screen, big enough, and not covered");
+    await shot("fullscreen-active");
+    await evaluate(`${exitBtn}.click()`);
+    await sleep(200);
+    check(await evaluate(`window.__fs.exits === 1 && !${exitBtn} && ${fsBtn}.getAttribute("aria-pressed") === "false"`), "fullscreen: the X exits and the controls update");
+    await evaluate(`${fsBtn}.click()`);
+    await sleep(150);
+    await evaluate(`window.__esc()`);
+    await sleep(300);
+    check(await evaluate(`window.__fs.requests === 2 && !${exitBtn} && ${fsBtn}.getAttribute("aria-pressed") === "false"`), "fullscreen: Esc (the browser's own exit, simulated with fullscreenchange) leaves it out and nothing re-enters");
+    // Not trapped: navigation still works while/after.
+    await send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowRight", code: "ArrowRight", windowsVirtualKeyCode: 39 });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowRight", code: "ArrowRight", windowsVirtualKeyCode: 39 });
+    await sleep(150);
+    check(await evaluate(`document.querySelector("section[aria-label]").getAttribute("aria-label") === "Issues closed"`), "fullscreen: the story keeps working (not trapped)");
+  });
+
+  await run("rejected", "/preview/full?card=intro", async () => {
+    await evaluate(`${fsBtn}.click()`);
+    await sleep(300);
+    const r = await evaluate(`({ req: window.__fs.requests, pressed: ${fsBtn}.getAttribute("aria-pressed"), note: document.querySelector("[role=status].dock-note")?.textContent, x: !!${exitBtn}, alert: typeof window.__alerts })`);
+    check(r.req === 1 && r.pressed === "false" && !r.x && /blocked full screen/i.test(r.note ?? ""), `fullscreen rejected: honest inline notice, no fake fullscreen, no X ${JSON.stringify(r)}`);
+    await shot("fullscreen-rejected");
+    await send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowRight", code: "ArrowRight", windowsVirtualKeyCode: 39 });
+    await sleep(150);
+    check(await evaluate(`document.querySelector("section[aria-label]").getAttribute("aria-label") === "Issues closed"`), "fullscreen rejected: the recap still works in the window");
+  });
+
+  await run("unsupported", "/preview/full?card=intro", async () => {
+    check(await evaluate(`!${fsBtn} && !!document.querySelector(".dock-pill")`), "fullscreen unsupported (e.g. iPhone Safari): no Full screen control is shown, the dock still works");
+  });
+
+  await run("supported", "/preview/full?gate=1", async () => {
+    const g = await evaluate(`(() => { const d = document.querySelector('[role=dialog]'); return { open: !!d, focus: document.activeElement?.textContent, title: d?.querySelector("h2")?.textContent }; })()`);
+    check(g.open && /Enter recap in full screen/.test(g.focus ?? "") && g.title === "Your recap is ready", `enter screen: dialog with the primary action focused ${JSON.stringify(g)}`);
+    await shot("enter-recap");
+    await evaluate(`[...document.querySelectorAll("[role=dialog] button")].find((b) => /enter recap/i.test(b.textContent)).click()`);
+    await sleep(300);
+    check(await evaluate(`window.__fs.requests === 1 && !document.querySelector("[role=dialog]") && !!${exitBtn}`), "enter screen: 'Enter recap' requests full screen from that click and starts the story");
+  });
+  await run("supported", "/preview/full?gate=1", async () => {
+    await evaluate(`[...document.querySelectorAll("[role=dialog] button")].find((b) => /continue in this window/i.test(b.textContent)).click()`);
+    await sleep(200);
+    check(await evaluate(`window.__fs.requests === 0 && !document.querySelector("[role=dialog]")`), "enter screen: 'Continue in this window' never asks the browser");
+  });
+  await run("supported", "/preview/full?gate=1", async () => {
+    await send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+    await sleep(200);
+    check(await evaluate(`window.__fs.requests === 0 && !document.querySelector("[role=dialog]")`), "enter screen: Esc continues in the window without requesting full screen");
+  });
+  await run("unsupported", "/preview/full?gate=1", async () => {
+    const t = await evaluate(`[...document.querySelectorAll("[role=dialog] button")].map((b) => b.textContent)`);
+    check(t.length === 1 && t[0] === "Enter recap", `enter screen unsupported: a single honest 'Enter recap' (${JSON.stringify(t)})`);
+  });
+}
+
+const ARCHETYPES = { "early-bird": "Early Bird", "friday-shipper": "Friday Shipper", "weekend-warrior": "Weekend Warrior", "steady-builder": "Steady Builder", "night-owl": "Night Owl" };
+
+async function art() {
+  for (const name of ["desktop", "phone", "phone-landscape"]) {
+    await viewport(name);
+    for (const [id, title] of Object.entries(ARCHETYPES)) {
+      for (const card of ["archetype", "summary"]) {
+        await go(`/preview/full?card=${card}&archetype=${id}`, { reduced: true });
+        await sleep(500);
+        const r = await evaluate(`(() => {
+          const root = document.querySelector("section[aria-label]");
+          const img = root.querySelector('img[src*="/archetypes/"]');
+          if (!img) return { found: false };
+          const b = img.getBoundingClientRect(), o = document.querySelector("[data-fit-scale]").getBoundingClientRect();
+          const text = [...root.querySelectorAll("h2, p, dd, dt")].filter((e) => e.getBoundingClientRect().height > 0 && !e.classList.contains("sr-only"));
+          const overlap = text.filter((e) => { const r = e.getBoundingClientRect(); return !e.contains(img) && r.left < b.right - 1 && b.left < r.right - 1 && r.top < b.bottom - 1 && b.top < r.bottom - 1; }).map((e) => e.textContent.slice(0, 20));
+          return { found: true, src: img.getAttribute("src"), loaded: img.complete && img.naturalWidth === 720 && img.naturalHeight === 720, alt: img.alt, w: b.width | 0, h: b.height | 0, square: Math.abs(b.width - b.height) < 1, fit: getComputedStyle(img).objectFit, inside: b.left >= o.left - 1 && b.right <= o.right + 1 && b.top >= o.top - 1 && b.bottom <= o.bottom + 1, overlap };
+        })()`);
+        check(r.found && r.src === `/archetypes/${id}.webp` && r.loaded && r.alt.includes(title) && r.square && r.fit === "contain" && r.inside && r.overlap.length === 0, `art ${name} ${card} ${id}: right file, loaded at 720px, whole (contain), square, alt names it, inside the card, no text overlap ${JSON.stringify(r)}`);
+        if (name !== "phone-landscape" && id === "night-owl") await shot(`art-${card}-${id}-${name}`);
+        if (name === "desktop") await shot(`art-${card}-${id}`);
+      }
+    }
   }
 }
 
@@ -202,24 +518,31 @@ async function story(fixture = "full") {
   }
 }
 
-async function disk() {
+async function print() {
   for (const fixture of ["full", "sparse", "zero", "long"]) {
-    for (const name of ["desktop", "phone", "phone-small", "phone-landscape"]) {
+    for (const name of ["desktop", "phone", "phone-small", "phone-landscape", "phone-landscape-short"]) {
       await viewport(name);
       await go(`/preview/${fixture}?card=summary`, { reduced: true });
-      await sleep(600);
+      await sleep(500);
       const r = await evaluate(`(() => {
-        const d = document.querySelector("[data-disk]"), label = d.querySelector("header").parentElement;
-        const bands = [...label.children].map((e) => e.getBoundingClientRect());
-        const overlap = bands.some((a, i) => bands.some((b, j) => j > i && a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5));
-        const inLabel = bands.every((b) => b.bottom <= label.getBoundingClientRect().bottom + 1 && b.top >= label.getBoundingClientRect().top - 1);
-        const texts = [...label.querySelectorAll("p, dt, dd, span")].filter((e) => e.children.length === 0);
-        const cut = texts.filter((e) => /line-clamp/.test(e.className) && e.scrollHeight > e.clientHeight + 2).length;
-        const min = Math.min(...texts.map((e) => parseFloat(getComputedStyle(e).fontSize)));
-        return { overlap, inLabel, cut, min: +min.toFixed(1), name: d.querySelector("p.uppercase.line-clamp-2")?.textContent };
+        const sheet = document.querySelector("[data-print]"), box = sheet.getBoundingClientRect();
+        const fit = document.querySelector("[data-fit-scale]").getBoundingClientRect();
+        const inner = sheet.firstElementChild;
+        const vis = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+        const items = [...inner.querySelectorAll("p:not(.sr-only), img, div[aria-hidden]")].filter((e) => vis(e) && !(e.tagName === "DIV" && !e.querySelector("svg path")) || e.tagName === "IMG" || e.tagName === "P" && vis(e)).filter((e) => !e.matches(".sr-only") && !(e.tagName === "DIV" && e.style.top === "37%"));
+        const dots = items.filter((e) => e.tagName === "DIV" && e.querySelector("svg path") && e.getBoundingClientRect().width > 0);
+        const named = items.filter((e) => e.tagName !== "DIV" || dots.includes(e));
+        const rects = named.map((e) => ({ e, r: e.getBoundingClientRect() }));
+        const sep = rects.filter((a) => !(a.e.tagName === "DIV" && a.r.height < 8 || a.e.tagName === "DIV" && a.r.width < 8));
+        const overlap = [];
+        sep.forEach((a, i) => sep.forEach((b, j) => { if (j > i && a.r.left < b.r.right - 1.5 && b.r.left < a.r.right - 1.5 && a.r.top < b.r.bottom - 1.5 && b.r.top < a.r.bottom - 1.5) overlap.push((a.e.textContent || a.e.tagName).slice(0, 18) + " x " + (b.e.textContent || b.e.tagName).slice(0, 18)); }));
+        const outside = sep.filter((a) => a.r.left < box.left - 1 || a.r.right > box.right + 1 || a.r.top < box.top - 1 || a.r.bottom > box.bottom + 1).length;
+        const cut = [...inner.querySelectorAll("p:not(.sr-only)")].filter((e) => !e.classList.contains("truncate") && (e.scrollHeight > e.clientHeight + 2 || e.scrollWidth > e.clientWidth + 2)).map((e) => e.textContent.slice(0, 20));
+        const text = sheet.innerText;
+        return { overlap, outside, cut, inFit: box.left >= fit.left - 1 && box.right <= fit.right + 1 && box.top >= fit.top - 1 && box.bottom <= fit.bottom + 1, w: box.width | 0, h: box.height | 0, name: /NAME:\s*(.*)/.exec(text)?.[1], hasSample: /AARON|QUINN/i.test(text), floppy: /floppy|foil/i.test(document.body.innerText), stats: [...sheet.querySelectorAll("p.sr-only")].map((p) => p.textContent) };
       })()`);
-      check(!r.overlap && r.inLabel && r.cut === 0, `disk label ${fixture} ${name}: bands separate, inside the label, nothing cut (min text ${r.min}px) ${JSON.stringify(r)}`);
-      await shot(`disk-${fixture}-${name}`);
+      check(r.overlap.length === 0 && r.outside === 0 && r.cut.length === 0 && r.inFit && !r.hasSample && !r.floppy, `print-out ${fixture} ${name}: no collisions, nothing outside the sheet or cut, sheet whole inside the card area, no sample or floppy text ${JSON.stringify(r)}`);
+      await shot(`print-${fixture}-${name}`);
     }
   }
 }
@@ -228,9 +551,13 @@ try {
   const all = which === "all";
   if (all || which === "landing") await landing();
   if (all || which === "boot") await boot();
+  if (all || which === "dust") await dust();
   if (all || which === "drag") await drag();
   if (all || which === "story") for (const f of (process.env.FIXTURES ?? "full,sparse,zero,long").split(",")) await story(f);
-  if (all || which === "disk") await disk();
+  if (all || which === "print" || which === "disk") await print();
+  if (all || which === "dock") await dock();
+  if (all || which === "fullscreen") await fullscreen();
+  if (all || which === "art") await art();
 } finally {
   ws.close();
   chrome.kill();

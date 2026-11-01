@@ -105,8 +105,16 @@ const TTL_MS = 10 * 60 * 1000;
 const MAX_ENTRIES = 50;
 const cache = new Map<string, { expires: number; value: Promise<WrappedStats> }>();
 
+const tokenKey = (token: string) => createHash("sha256").update(token).digest("hex");
+
+/** Drops everything memoized for this token (sign out). Other visitors' entries are untouched. */
+export function forgetWrappedStats(token: string): void {
+  const prefix = `${tokenKey(token)}:`;
+  for (const k of cache.keys()) if (k.startsWith(prefix)) cache.delete(k);
+}
+
 export function getWrappedStats(token: string, year = DEFAULT_YEAR): Promise<WrappedStats> {
-  const key = createHash("sha256").update(`${year}:${token}`).digest("hex");
+  const key = `${tokenKey(token)}:${year}`;
   const now = Date.now();
   for (const [k, v] of cache) if (v.expires <= now) cache.delete(k);
 

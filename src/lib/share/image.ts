@@ -1,10 +1,10 @@
 import { cloneElement, createElement as h, type CSSProperties, type ReactElement } from "react";
-import { monthName } from "../recap.ts";
 import { ARCHETYPE_COPY } from "../stats/archetype.ts";
-import { constellation, daysInYear, ring, sigil } from "./art.ts";
+import { constellation } from "./art.ts";
 import { describe, type CardCopy } from "./copy.ts";
 import type { Snapshot } from "./snapshot.ts";
 import { PALETTE } from "../retro/palette.ts";
+import { BACKDROP, buildPrintout } from "./printout.ts";
 import { CARD_ACCENTS, IMAGE_FORMATS, SURFACE, type ImageFormat } from "./theme.ts";
 
 /**
@@ -85,8 +85,71 @@ function frame(format: ImageFormat, screen: ReactElement): ReactElement {
   );
 }
 
-export function renderCard(snapshot: Snapshot, format: ImageFormat): ReactElement {
-  return snapshot.c === "summary" ? renderDisk(snapshot, format) : renderPlain(snapshot, format);
+/**
+ * `art` is the archetype's engraving as a data URI (see `loadShareArt`), used by the
+ * archetype and summary cards. Without it (tests, an unreadable file) those cards
+ * fall back to the generated sigil.
+ */
+export function renderCard(snapshot: Snapshot, format: ImageFormat, art: string | null = null): ReactElement {
+  if (snapshot.c === "summary") return renderDisk(snapshot, format, art);
+  if (snapshot.c === "archetype" && art) return renderArchetype(snapshot, format, art);
+  return renderPlain(snapshot, format);
+}
+
+/** The halftone badge, whole (`contain`, never cropped); clipped to its own circle so the paper-coloured corners of the JPEG never show on the dark screen. */
+function artFrame(art: string, size: number): ReactElement {
+  return box(
+    { width: size, height: size, flexShrink: 0, borderRadius: 999, overflow: "hidden" },
+    // Satori needs explicit pixel sizes on <img>; the data URI is local, so nothing is fetched.
+    h("img", { src: art, width: size, height: size, style: { objectFit: "contain" } }),
+  );
+}
+
+type ArchetypeSnap = Extract<Snapshot, { c: "archetype" }>;
+
+function renderArchetype(snapshot: ArchetypeSnap, format: ImageFormat, art: string): ReactElement {
+  const raw = describe(snapshot);
+  const a = ARCHETYPE_COPY[snapshot.a];
+  const k = SCALES[format];
+  const [accent] = CARD_ACCENTS.archetype;
+  const story = format === "story";
+  const name = imageSafe(a.name);
+  const head = box(
+    { justifyContent: "space-between", alignItems: "center", paddingBottom: k.kicker * 0.4, borderBottom: "2px dashed rgba(184,168,255,0.5)", fontSize: k.kicker, letterSpacing: 5, textTransform: "uppercase" },
+    text({}, `Linear Wrapped ${snapshot.y}`),
+    text({ color: accent }, "Ready."),
+  );
+  const foot = box({ alignItems: "center", gap: k.foot * 0.4, fontSize: k.foot, lineHeight: 1.3, opacity: 0.7 }, text({ color: PALETTE.amber }, ">"), text({}, raw.footnote ? imageSafe(raw.footnote) : "Get yours: Linear Wrapped"));
+  const copy = (size: number, nameSize: number, gap: number) =>
+    box(
+      { flexDirection: "column", gap },
+      text({ fontSize: k.kicker * 1.15, letterSpacing: 5, textTransform: "uppercase", color: PALETTE.amber }, "> Archetype"),
+      text({ fontSize: nameSize, lineHeight: 0.95, textTransform: "uppercase", wordBreak: "break-word", color: accent, textShadow: GLOW }, name),
+      text({ fontSize: size * 1.1, lineHeight: 1.2, color: PALETTE.phosphor }, imageSafe(a.tagline)),
+      text({ fontSize: size, lineHeight: 1.25, opacity: 0.8 }, imageSafe(a.description)),
+    );
+
+  if (story) {
+    return frame(
+      format,
+      box(
+        { ...fill, flexDirection: "column", justifyContent: "space-between", padding: k.pad },
+        head,
+        box({ alignSelf: "center" }, artFrame(art, 800)),
+        copy(k.body * 0.8, fit(k.headline, name, 10, 0.5), 20),
+        foot,
+      ),
+    );
+  }
+  return frame(
+    format,
+    box(
+      { ...fill, flexDirection: "column", justifyContent: "space-between", padding: k.pad },
+      head,
+      box({ alignItems: "center", gap: 36, flex: 1, paddingTop: 14, paddingBottom: 8 }, artFrame(art, 420), box({ flex: 1 }, copy(k.body * 0.85, fit(70, name, 11, 0.6), 10))),
+      foot,
+    ),
+  );
 }
 
 function renderPlain(snapshot: Snapshot, format: ImageFormat): ReactElement {
@@ -217,126 +280,58 @@ function pills(items: string[], k: Scale) {
   );
 }
 
-// ---------- collectible floppy disk ----------
+// ---------- dot-matrix print-out ----------
 
 type Summary = Extract<Snapshot, { c: "summary" }>;
 
-const FOIL = "linear-gradient(115deg, #ff6ec7, #ffd86e, #7dffb2, #6ec8ff, #c58bff)";
+const CREAM = "#e6d9ba";
 
-function renderDisk(s: Summary, format: ImageFormat): ReactElement {
+/**
+ * The summary: the same print-out sheet the story ends on (`lib/share/printout.ts`), lying on a dark desk.
+ * Public images never carry the viewer's name: the report is built without it. Only
+ * the numbers, the archetype and its badge, which every summary share already showed.
+ */
+function renderDisk(s: Summary, format: ImageFormat, art: string | null): ReactElement {
   const story = format === "story";
-  const [a] = CARD_ACCENTS.summary;
-  const disk = diskCard(s, story ? 860 : 440);
-  const status = (size: number) =>
-    box(
-      { justifyContent: "space-between", alignItems: "center", fontSize: size, letterSpacing: 5, textTransform: "uppercase", color: PALETTE.phosphor },
-      text({}, `Linear Wrapped ${s.y}`),
-      text({ color: PALETTE.amber }, "Load ok."),
-    );
+  const data = { year: s.y, archetype: s.a, closed: s.n, activeDays: s.d, streak: s.s ?? 0, peakMonth: s.m ?? null, undercount: s.u };
+  const { width, height } = IMAGE_FORMATS[format];
+  const desk = {
+    position: "relative" as const,
+    width,
+    height,
+    overflow: "hidden" as const,
+    color: CREAM,
+    backgroundColor: BACKDROP,
+    backgroundImage: "radial-gradient(circle at 50% 40%, #2c261c, #0f0d09 75%)",
+  };
+  const caption = (size: number) => text({ fontSize: size, opacity: 0.8, letterSpacing: 2 }, s.u ? "> Counts may be undercounts." : "> Get yours: Linear Wrapped");
 
   if (story) {
-    return frame(
-      format,
+    const w = 940;
+    return box(
+      desk,
       box(
-        { ...fill, flexDirection: "column", justifyContent: "space-between", padding: 72 },
-        box({ flexDirection: "column", paddingBottom: 18, borderBottom: "2px dashed rgba(184,168,255,0.5)" }, status(36)),
-        box({ alignSelf: "center" }, disk),
-        text({ fontSize: 34, opacity: 0.75, color: PALETTE.phosphor }, s.u ? "> Counts may be undercounts." : "> Get yours: Linear Wrapped"),
+        { ...fill, flexDirection: "column", justifyContent: "space-between", alignItems: "center", padding: 72 },
+        text({ alignSelf: "flex-start", fontSize: 38, letterSpacing: 6, textTransform: "uppercase", color: PALETTE.amber }, `> Linear Wrapped ${s.y}`),
+        box({ transform: "rotate(-1.2deg)", boxShadow: "0 30px 60px rgba(0,0,0,0.55)" }, buildPrintout(data, w, { art })),
+        box({ alignSelf: "flex-start" }, caption(34)),
       ),
     );
   }
 
   const k = SCALES.og;
-  return frame(
-    format,
-    box(
-      { ...fill, flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: `0 ${k.pad + 20}px`, color: PALETTE.phosphor },
-      disk,
-      box(
-        { flexDirection: "column", gap: 10, width: 520 },
-        text({ fontSize: k.kicker, letterSpacing: 5, textTransform: "uppercase", color: PALETTE.amber }, `> My ${s.y} in Linear`),
-        text({ fontSize: fit(150, s.n.toLocaleString("en-US"), 5), lineHeight: 0.9, color: a, textShadow: GLOW }, s.n.toLocaleString("en-US")),
-        text({ fontSize: 52, lineHeight: 1, textTransform: "uppercase" }, s.n === 1 ? "issue closed." : "issues closed."),
-        text({ fontSize: 28, opacity: 0.85, marginTop: 8, textTransform: "uppercase" }, `${ARCHETYPE_COPY[s.a].name}${s.s ? ` · ${s.s}-day streak` : ""}`),
-        text({ fontSize: 22, opacity: 0.7, marginTop: 6 }, s.u ? "> Counts may be undercounts." : "> Get yours: Linear Wrapped"),
-      ),
-    ),
-  );
-}
-
-/** The disk itself, square, sized by width. Every dimension scales from `w`, so story and wide share one drawing. */
-function diskCard(s: Summary, w: number): ReactElement {
-  const u = w / 860;
-  const px = (n: number) => Math.round(n * u);
-  const [a, b] = CARD_ACCENTS.summary;
-  const archetype = ARCHETYPE_COPY[s.a];
-  const labelW = w - px(110);
-  const labelH = px(470);
-  const inset = px(190);
-  const ink = PALETTE.ink;
-
-  const sleeve = (child: ReactElement | null, style: CSSProperties) => box(style, child);
-  const foil = (style: CSSProperties) => box({ backgroundImage: FOIL, border: `${Math.max(1, px(2))}px solid rgba(0,0,0,0.6)`, ...style });
-
-  const stat = (label: string, value: string, sub?: string) =>
-    box(
-      { flexDirection: "column", flex: 1, gap: px(2) },
-      text({ fontSize: px(22), letterSpacing: px(3), textTransform: "uppercase", color: ink, opacity: 0.7 }, label),
-      text({ fontSize: px(66), lineHeight: 1, color: ink }, value),
-      text({ fontSize: px(22), color: ink, opacity: 0.7, height: px(26) }, sub ?? ""),
-    );
-
+  const a = CARD_ACCENTS.summary[0];
+  const w = 468;
   return box(
-    {
-      position: "relative",
-      width: w,
-      height: w,
-      borderRadius: px(26),
-      border: `${Math.max(2, px(4))}px solid #6b6552`,
-      backgroundImage: "linear-gradient(150deg, #403d33, #1a1914)",
-      boxShadow: `${px(14)}px ${px(18)}px 0 rgba(0,0,0,0.55)`,
-    },
-    // Head window and hub on the black sleeve
-    sleeve(null, { position: "absolute", left: Math.round(w / 2 - px(46)), top: px(30), width: px(92), height: px(112), borderRadius: px(46), backgroundColor: "#030303", border: `${px(4)}px solid #4a463a` }),
-    sleeve(
-      box({ width: px(36), height: px(36), borderRadius: 999, backgroundColor: "#030303", border: `${px(3)}px solid #7a7360` }),
-      { position: "absolute", left: Math.round(w / 2 - px(52)), top: px(92), width: px(104), height: px(104), borderRadius: 999, backgroundColor: "#17150f", border: `${px(4)}px solid #5a5444`, alignItems: "center", justifyContent: "center" },
-    ),
-    // Write-protect tab: holographic foil
-    foil({ position: "absolute", left: -px(8), top: px(170), width: px(38), height: px(96) }),
-    // Paper label with the system report
+    { ...desk, flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: `0 ${k.pad + 30}px` },
+    box({ transform: "rotate(-2deg)", boxShadow: "0 18px 40px rgba(0,0,0,0.55)" }, buildPrintout(data, w, { art })),
     box(
-      { position: "absolute", left: px(55), bottom: px(30), width: labelW, height: labelH, flexDirection: "column", justifyContent: "space-between", padding: px(26), backgroundColor: "#e8e0c4", border: `${Math.max(1, px(2))}px solid rgba(0,0,0,0.4)` },
-      box({ position: "absolute", left: 0, top: 0, width: labelW, height: px(16), backgroundColor: PALETTE.amber }),
-      box(
-        { justifyContent: "space-between", alignItems: "center", marginTop: px(14) },
-        text({ fontSize: px(26), letterSpacing: px(3), textTransform: "uppercase", color: ink }, `Linear Wrapped`),
-        text({ fontSize: px(26), letterSpacing: px(3), color: ink, opacity: 0.8 }, String(s.y)),
-      ),
-      box(
-        { gap: px(26), alignItems: "center" },
-        // A tiny tube with the ring and sigil
-        box(
-          { position: "relative", width: inset, height: inset, flexShrink: 0, alignItems: "center", justifyContent: "center", border: `${px(4)}px solid ${ink}`, backgroundColor: SURFACE, overflow: "hidden" },
-          box({ position: "absolute", left: px(8), top: px(8) }, ring(inset - px(24), s.d / daysInYear(s.y), [a, b], "disk-ring")),
-          box({ position: "absolute", left: px(40), top: px(40) }, sigil(s.a, inset - px(88), [a, b], "disk-sigil")),
-          box({ ...fill, backgroundImage: "repeating-linear-gradient(180deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 3px)" }),
-        ),
-        box(
-          { flexDirection: "column", gap: px(4), flex: 1 },
-          text({ fontSize: px(24), letterSpacing: px(4), textTransform: "uppercase", color: ink, opacity: 0.7 }, "Archetype"),
-          text({ fontSize: fit(px(64), archetype.name, 10, 0.55), lineHeight: 0.95, textTransform: "uppercase", color: ink }, archetype.name),
-          text({ fontSize: px(26), lineHeight: 1.1, color: ink, opacity: 0.85 }, archetype.description),
-        ),
-      ),
-      box(
-        { gap: px(18), paddingTop: px(14), borderTop: `${px(3)}px dashed rgba(28,26,20,0.5)` },
-        stat("Closed", s.n.toLocaleString("en-US")),
-        stat("Active days", String(s.d), `of ${daysInYear(s.y)}`),
-        stat("Streak", s.s ? String(s.s) : "-", s.s ? (s.s === 1 ? "day" : "days") : s.m ? `Peak ${monthName(s.m, true)}` : ""),
-      ),
-      // Holographic seal
-      foil({ position: "absolute", right: px(26), bottom: px(30), width: px(84), height: px(84), alignItems: "center", justifyContent: "center" }),
+      { flexDirection: "column", gap: 10, width: 560 },
+      text({ fontSize: k.kicker, letterSpacing: 5, textTransform: "uppercase", color: PALETTE.amber }, `> My ${s.y} in Linear`),
+      text({ fontSize: fit(150, s.n.toLocaleString("en-US"), 5), lineHeight: 0.9, color: CREAM }, s.n.toLocaleString("en-US")),
+      text({ fontSize: 52, lineHeight: 1, textTransform: "uppercase" }, s.n === 1 ? "issue closed." : "issues closed."),
+      text({ fontSize: 28, opacity: 0.85, marginTop: 8, textTransform: "uppercase", color: a }, `${ARCHETYPE_COPY[s.a].name}${s.s ? ` · ${s.s}-day streak` : ""}`),
+      text({ fontSize: 22, opacity: 0.7, marginTop: 6 }, s.u ? "> Counts may be undercounts." : "> Get yours: Linear Wrapped"),
     ),
   );
 }

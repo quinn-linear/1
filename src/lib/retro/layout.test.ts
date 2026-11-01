@@ -1,31 +1,33 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { clampOffset, isOverSlot, seatedOffset, type Box } from "./drag.ts";
+import { centeredOffset, clampOffset, containsPoint, type Box } from "./drag.ts";
 import { MIN_SCALE, chooseScale } from "./fit.ts";
 
-const slot: Box = { left: 100, top: 100, width: 400, height: 40 };
-const disk = (left: number, top: number): Box => ({ left, top, width: 170, height: 170 });
+const computer: Box = { left: 100, top: 50, width: 500, height: 400 };
+const tape: Box = { left: 300, top: 500, width: 200, height: 130 };
 
-test("a disk counts as inserted when its leading edge reaches the slot and it is centred over it", () => {
-  assert.ok(isOverSlot(disk(215, 120), slot));
-  assert.ok(isOverSlot(disk(215, 140), slot), "edge exactly at the slot's lower edge");
-  assert.ok(!isOverSlot(disk(215, 141), slot), "still below the slot");
-  assert.ok(!isOverSlot(disk(600, 100), slot), "beside the drive");
+test("the pointer counts as over the computer anywhere inside its measured box, edges included", () => {
+  assert.ok(containsPoint(computer, 350, 250));
+  assert.ok(containsPoint(computer, 100, 50) && containsPoint(computer, 600, 450), "corners");
+  assert.ok(!containsPoint(computer, 99, 250) && !containsPoint(computer, 601, 250), "beside it");
+  assert.ok(!containsPoint(computer, 350, 49) && !containsPoint(computer, 350, 451), "above and below it");
+  // The box is measured live, so a different (responsive) layout moves the target with it.
+  assert.ok(!containsPoint({ ...computer, left: 700 }, 350, 250));
+  assert.ok(containsPoint({ ...computer, left: 700 }, 750, 250));
 });
 
-test("the seated pose centres the disk on the slot with its leading edge inside it", () => {
-  const rest = disk(300, 400);
-  const o = seatedOffset(rest, slot);
-  const seated = disk(rest.left + o.x, rest.top + o.y);
-  assert.equal(seated.left + seated.width / 2, slot.left + slot.width / 2);
-  assert.ok(seated.top > slot.top && seated.top < slot.top + slot.height);
-  assert.ok(isOverSlot(seated, slot), "the seated pose is itself a valid drop");
+test("a tapped cassette flies to the centre of the computer", () => {
+  const o = centeredOffset(tape, computer);
+  const arrived: Box = { ...tape, left: tape.left + o.x, top: tape.top + o.y };
+  assert.equal(arrived.left + arrived.width / 2, computer.left + computer.width / 2);
+  assert.equal(arrived.top + arrived.height / 2, computer.top + computer.height / 2);
+  assert.ok(containsPoint(computer, arrived.left + arrived.width / 2, arrived.top + arrived.height / 2));
 });
 
-test("dragging can't fling the disk off screen", () => {
-  const o = clampOffset(disk(300, 400), -9999, 9999, { width: 1000, height: 800 });
-  assert.equal(300 + o.x, 0);
-  assert.equal(400 + o.y + 170, 800);
+test("dragging can't fling the cassette off screen", () => {
+  const o = clampOffset(tape, -9999, 9999, { width: 1000, height: 800 });
+  assert.equal(tape.left + o.x, 0);
+  assert.equal(tape.top + o.y + tape.height, 800);
 });
 
 test("fit picks the largest scale whose content fits, and reports when none does", () => {

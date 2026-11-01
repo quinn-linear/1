@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     url: "/",
     siteName: "Linear Wrapped",
     title: `Linear Wrapped ${YEAR}`,
-    description: "Your year in Linear, wrapped. Insert the floppy, sign in with read-only access and see what you closed, your work archetype, your peak month and more.",
+    description: "Your year in Linear, wrapped. Drag the cassette onto the computer, sign in with read-only access and see what you closed, your work archetype, your peak month and more.",
   },
 };
 
@@ -26,7 +26,7 @@ const errors: Record<string, string> = {
 
 /**
  * The landing is one screen: everything essential (title, computer, drive and
- * floppy, keys, the plain sign-in link) is sized from the viewport so nothing
+ * cassette, the plain sign-in link) is sized from the viewport so nothing
  * needs scrolling. The page only scrolls as a last resort, when the viewport is
  * so small (extreme zoom) that the content can't shrink any further.
  */
@@ -44,7 +44,7 @@ export default async function Home({
         <header className="landing-header flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
           <div className="min-w-0">
             <h1 className="text-[clamp(1.5rem,min(7vw,5dvh),3rem)] leading-none tracking-wide text-amber">LINEAR WRAPPED {YEAR}</h1>
-            <p className="landing-tagline mt-1 max-w-xl text-lg leading-snug text-ph/80">Your year in Linear, loaded from a single floppy disk.</p>
+            <p className="landing-tagline mt-1 max-w-xl text-lg leading-snug text-ph/80">Your year in Linear, loaded from a single cassette tape.</p>
           </div>
           <SignInButton href={START_PATH} />
         </header>
@@ -59,7 +59,7 @@ export default async function Home({
 
         <noscript>
           <p className="panel p-3 text-lg">
-            The floppy disk needs JavaScript. <a href={START_PATH} className="text-amber underline">Sign in with Linear</a> to go straight to your recap.
+            The cassette needs JavaScript. <a href={START_PATH} className="text-amber underline">Sign in with Linear</a> to go straight to your recap.
           </p>
         </noscript>
       </section>
