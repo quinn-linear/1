@@ -2,9 +2,9 @@ import { LOADING_HINT } from "@/lib/sparse";
 import { LoadingMessage } from "./LoadingMessage";
 
 const stackCards = [
-  "from-fuchsia-500 to-pink-500 [animation-delay:0s]",
-  "from-amber-400 to-orange-500 [animation-delay:-0.4s]",
-  "from-cyan-400 to-indigo-500 [animation-delay:-0.8s]",
+  "from-indigo-400 to-fuchsia-400 [animation-delay:0s]",
+  "from-cyan-300 to-violet-400 [animation-delay:-0.4s]",
+  "from-amber-200 to-pink-400 [animation-delay:-0.8s]",
 ];
 
 /**
@@ -16,8 +16,10 @@ const stackCards = [
 export function WrappedLoading({ year }: { year: number }) {
   return (
     <main className="relative isolate flex min-h-dvh items-center overflow-hidden px-6 sm:px-10">
-      <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-br from-fuchsia-700 via-indigo-800 to-slate-950">
-        <div className="animate-drift absolute -left-1/4 -top-1/4 h-[60vmax] w-[60vmax] rounded-full bg-orange-500/30 blur-[120px]" />
+      <div aria-hidden className="absolute inset-0 -z-10">
+        <div className="animate-drift absolute -left-1/4 -top-1/4 h-[60vmax] w-[60vmax] rounded-full bg-indigo-500/25 blur-[140px]" />
+        <div className="grid-fade absolute inset-0" />
+        <div className="grain absolute inset-0" />
       </div>
 
       <div role="status" className="mx-auto flex w-full max-w-2xl flex-col items-start gap-6">
@@ -27,17 +29,17 @@ export function WrappedLoading({ year }: { year: number }) {
           {stackCards.map((card, i) => (
             <div
               key={card}
-              className={`animate-wobble absolute inset-0 rounded-2xl bg-gradient-to-br shadow-xl ${card}`}
+              className={`animate-wobble absolute inset-0 rounded-2xl bg-gradient-to-br opacity-80 shadow-[0_0_40px_-8px_rgba(167,139,250,0.7)] ring-1 ring-white/30 ${card}`}
               style={{ transform: `rotate(${(i - 1) * 9}deg)` }}
             />
           ))}
         </div>
 
-        <h1 aria-hidden className="text-[13vw] font-black leading-[0.9] tracking-tighter sm:text-7xl">
+        <h1 aria-hidden className="text-[12vw] font-semibold leading-[0.92] tracking-[-0.045em] sm:text-7xl">
           Wrapping your {year}
         </h1>
         <LoadingMessage />
-        <p aria-hidden className="max-w-md text-sm font-medium text-white/70">
+        <p aria-hidden className="max-w-md text-sm text-white/45">
           {LOADING_HINT}
         </p>
       </div>

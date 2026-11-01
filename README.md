@@ -4,6 +4,8 @@ A Spotify Wrapped-style yearly recap for Linear (calendar year 2026). Built with
 
 ## Status
 
+Visual redesign (on top of step 7, merged in #7): near-black, Linear-style dark UI with a per-card accent, abstract data charts (activity ring, scrubbable monthly area chart, streak day-chain, share meters, age track) and a holographic collectible summary card with iridescent foil, specular glare, sparkles and pointer/touch tilt (idle sway; static under `prefers-reduced-motion`). Share images (1080x1920, 1200x630) use the same palette, and the summary image draws the card as a static hologram. Stats, OAuth, share-token schema, privacy disclosures and caveats are unchanged. The summary card shows only what its share image shows (plus the viewer's own name on screen).
+
 Step 7 (final) adds the loading screen, empty/sparse states and share/landing metadata (below), on top of step 6 (merged in #6).
 
 Step 6 adds per-card sharing (below), on top of step 5 (merged in #5).

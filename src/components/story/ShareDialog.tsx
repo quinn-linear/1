@@ -14,7 +14,7 @@ const ERRORS: Record<number, string> = {
 };
 
 const button =
-  "rounded-full px-4 py-2.5 text-sm font-extrabold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-40";
+  "rounded-full px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-40";
 
 /**
  * Modal share panel for one card. Nothing is created until it opens, nothing
@@ -106,10 +106,10 @@ export function ShareDialog({ card, title, onClose }: { card: CardId; title: str
       // Keep taps and swipes inside the panel from navigating the story underneath.
       onPointerDown={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
-      className="m-auto max-h-[92dvh] w-[min(94vw,30rem)] select-text overflow-y-auto rounded-3xl bg-[#14121f] p-5 text-white shadow-2xl ring-1 ring-white/20 backdrop:bg-black/70 sm:p-6"
+      className="m-auto max-h-[92dvh] w-[min(94vw,30rem)] select-text overflow-y-auto rounded-3xl bg-[#0d0e14] p-5 text-white shadow-[0_0_80px_-20px_rgba(139,92,246,0.6)] ring-1 ring-white/15 backdrop:bg-black/75 backdrop:backdrop-blur-sm sm:p-6"
     >
       <div className="flex items-start justify-between gap-4">
-        <h2 id="share-title" className="text-xl font-black tracking-tight">
+        <h2 id="share-title" className="text-xl font-semibold tracking-tight">
           Share “{title}”
         </h2>
         <button type="button" onClick={() => dialog.current?.close()} aria-label="Close share panel" className={`${button} bg-white/10 px-3 py-1.5 hover:bg-white/20`}>
@@ -120,7 +120,7 @@ export function ShareDialog({ card, title, onClose }: { card: CardId; title: str
       {load.status === "error" && (
         <div role="alert" className="mt-4 rounded-2xl bg-red-500/15 p-4 text-sm font-medium text-red-100 ring-1 ring-red-400/40">
           <p>{load.message}</p>
-          <button type="button" onClick={() => { setLoad({ status: "loading" }); setAttempt((n) => n + 1); }} className={`${button} mt-3 bg-white text-indigo-950`}>
+          <button type="button" onClick={() => { setLoad({ status: "loading" }); setAttempt((n) => n + 1); }} className={`${button} mt-3 bg-white text-black`}>
             Try again
           </button>
         </div>
@@ -162,16 +162,16 @@ export function ShareDialog({ card, title, onClose }: { card: CardId; title: str
       )}
 
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <button type="button" onClick={postToX} disabled={!canShare} className={`${button} bg-white text-indigo-950 hover:bg-white/90`}>
+        <button type="button" onClick={postToX} disabled={!canShare} className={`${button} bg-white text-black hover:bg-white/90`}>
           Share on X
         </button>
-        <button type="button" onClick={copy} disabled={!canShare} className={`${button} bg-white/15 ring-1 ring-white/30 hover:bg-white/25`}>
+        <button type="button" onClick={copy} disabled={!canShare} className={`${button} glass hover:bg-white/10`}>
           Copy link
         </button>
-        <button type="button" onClick={() => download("story")} disabled={!canShare} className={`${button} bg-white/15 ring-1 ring-white/30 hover:bg-white/25`}>
+        <button type="button" onClick={() => download("story")} disabled={!canShare} className={`${button} glass hover:bg-white/10`}>
           Download image
         </button>
-        <button type="button" onClick={() => download("og")} disabled={!canShare} className={`${button} bg-white/15 ring-1 ring-white/30 hover:bg-white/25`}>
+        <button type="button" onClick={() => download("og")} disabled={!canShare} className={`${button} glass hover:bg-white/10`}>
           Download wide image
         </button>
       </div>

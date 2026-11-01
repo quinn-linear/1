@@ -50,7 +50,7 @@ async function WrappedContent({ token, showCards }: { token: string; showCards: 
 
   return (
     <main className="flex min-h-dvh flex-col items-start justify-center gap-6 px-6 sm:px-10">
-      <p className="max-w-md text-xl font-medium text-white/85 sm:text-2xl">
+      <p className="max-w-md text-xl leading-relaxed text-white/65 sm:text-2xl">
         Signed in with read-only access, but we couldn&apos;t load your stats. Try again shortly.
       </p>
       <form action="/api/auth/logout" method="post">
