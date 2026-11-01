@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { CARD_IDS, formatDay, monthName, plural, prettyService, type CardId, type Recap } from "@/lib/recap";
+import { SPARSE_NOTE, recapDensity } from "@/lib/sparse";
 import { Avatar, Blurb, CountUp, Footnote, Headline, Huge, Kicker, Reveal, sunny } from "./primitives";
 
 export const CARD_TITLES: Record<CardId, string> = {
@@ -56,6 +57,11 @@ function Intro({ r }: { r: Recap }) {
       <Reveal>
         <Blurb>Tap to see what you shipped. Snacks optional.</Blurb>
       </Reveal>
+      {recapDensity(r) === "sparse" && (
+        <Reveal>
+          <Footnote>{SPARSE_NOTE(r.totalClosed, r.year)}</Footnote>
+        </Reveal>
+      )}
     </>
   );
 }

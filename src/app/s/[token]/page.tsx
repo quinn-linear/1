@@ -3,12 +3,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { describe } from "@/lib/share/copy";
 import { decodeToken } from "@/lib/share/snapshot";
+import { shareMetadata } from "@/lib/share/meta";
 import { shareSecret } from "@/lib/share/server";
 import { IMAGE_FORMATS } from "@/lib/share/theme";
+import { resolveSiteOrigin } from "@/lib/site";
 
 // Public and cookie-free: this page never reads the session, so it can't leak or mix up anyone's account.
-// Preview meta tags (og:image etc.) are step 7; for now just keep shared links out of search indexes.
-export const metadata: Metadata = { robots: { index: false } };
+// Preview tags (og:/twitter: with the wide image) are built only after the token verifies; links stay noindex.
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  return shareMetadata(token, shareSecret(), resolveSiteOrigin());
+}
 
 export default async function SharedCardPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

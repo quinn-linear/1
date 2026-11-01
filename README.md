@@ -4,6 +4,8 @@ A Spotify Wrapped-style yearly recap for Linear (calendar year 2026). Built with
 
 ## Status
 
+Step 7 (final) adds the loading screen, empty/sparse states and share/landing metadata (below), on top of step 6 (merged in #6).
+
 Step 6 adds per-card sharing (below), on top of step 5 (merged in #5).
 
 Step 5 adds the `/wrapped` story cards (below), on top of step 4 (merged in #4).
@@ -83,4 +85,13 @@ Limits and honest limitations:
 - Images use `next/og` (Next's bundled `@vercel/og`) with the bundled Geist Regular font (no bold weight). To avoid render-time requests to emoji/font CDNs, image text is limited to Latin characters; other characters show as `?` in the image (the shared page and link text keep them).
 - Image generation is CPU-bound; abuse is bounded by signature checks (only app-minted tokens render) and CDN caching, but there is no rate limiter.
 - Card caveats carry over: counts cap at 5000 issues (`truncated` shows an undercount note), collaborator is a creator/assignee proxy, and integrations are workspace-level.
-- Preview meta tags (`og:image` etc.) and loading/empty states are step 7; shared pages are `noindex` for now.
+
+## Loading, empty states and metadata (step 7)
+
+**Loading.** `/wrapped` checks the session cookie first (signed-out visitors redirect immediately), then streams: the stats crawl runs inside a `<Suspense>` boundary, so a playful loading screen is sent right away and swapped for the story when stats are ready. It is indeterminate on purpose (we can't know how far the Linear calls are), so there is no progress bar or percentage; the cycling lines only say what is being looked at. Motion is CSS-only, off under `prefers-reduced-motion` (the lines also stop cycling), and screen readers get one `role="status"` message.
+
+**Empty and sparse.** Zero closed issues shows a dedicated page instead of 11 empty cards: it explains how "closed" is counted, keeps the real metrics we do have (oldest open issue, workspace integrations, undercount note if truncated) and links to Open Linear, `/wrapped?cards=1` (the full story anyway) and Sign out. Fewer than 10 closed issues (the same cutoff as the archetype's "insufficient data") shows the full story with an honest note on the intro card. Nothing is estimated.
+
+**Metadata.** Absolute URLs come from `SITE_URL` (https only, or http on localhost; set it at build time for a custom domain), else the Vercel production domain, else the deployment's `VERCEL_URL`, else `http://localhost:3000`. They are never derived from request headers. The landing page has a canonical URL and Open Graph/Twitter tags with a generic image (`/opengraph-image`, the intro card, no user data). `/s/<token>` builds its title, description, canonical and `og:`/`twitter:` tags (wide 1200x630 image) only after the token's length and signature verify; malformed or forged links get a generic "Link not found" title and `noindex`, and the page itself returns 404. Shared pages stay `noindex` (previews work, search indexing doesn't). `/wrapped` metadata is static, generic and `noindex, nofollow`; nothing about the viewer goes into it. Vercel preview deployments are often behind Vercel authentication, so crawlers may not be able to fetch preview URLs.
+
+Not changed (earlier limitations stand): 5000-issue list cap, collaborator as a creator/assignee proxy, workspace-level integrations, non-revocable share links, and `?` for non-Latin characters in share images.
