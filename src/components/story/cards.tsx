@@ -9,6 +9,7 @@ import { ClockFace, ComebackTimeline, ConstellationChart, FinishLine, ScopeChart
 import { AgeTrack, DayChain, Meter, MonthChart, Ring, YearSpark } from "./charts";
 import { ArchetypeArt } from "./ArchetypeArt";
 import { Printout } from "./Printout";
+import { useWide } from "./useWide";
 import { Avatar, Blurb, CountUp, Footnote, Headline, Huge, Kicker, Reveal, sunny } from "./primitives";
 
 export const CARD_TITLES: Record<CardId, string> = {
@@ -264,6 +265,8 @@ function Integrations({ r }: { r: Recap }) {
   const { status, services } = r.integrations;
   const shown = services.slice(0, ORBIT_MAX);
   const extra = services.length - shown.length;
+  // The name of the connected workspace, only on the signed-in recap; the shared card never has it.
+  const place = r.workspace ?? "your workspace";
   return (
     <>
       <Reveal>
@@ -271,39 +274,24 @@ function Integrations({ r }: { r: Recap }) {
       </Reveal>
       {status === "ok" && services.length > 0 ? (
         <>
-          <Reveal className="relative mx-auto my-2 h-72 w-72 sm:h-96 sm:w-96">
-            <div aria-hidden className="absolute inset-[12%] border border-dashed border-ph/40" />
-            <div className="absolute left-1/2 top-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center panel text-center font-mono text-xs font-medium uppercase leading-tight tracking-widest">
-              Your
-              <br />
-              workspace
+          {/* A hub and a wrapping row of chips: they take the room they need and never overlap, at any count. */}
+          <Reveal className="mx-auto my-3 flex w-full max-w-md flex-col items-center gap-4">
+            <div data-workspace className="panel max-w-full px-5 py-3 text-center font-mono text-xs font-medium uppercase leading-tight tracking-widest sm:text-sm">
+              <span className="block text-[0.65em] opacity-70">{r.workspace ? "Workspace" : "Your"}</span>
+              <span className="block break-words">{r.workspace ?? "workspace"}</span>
             </div>
-            <motion.ul
-              className="absolute inset-0"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 60, ease: "linear", repeat: Infinity }}
-              aria-label="Connected services"
-            >
-              {shown.map((s, i) => {
-                const angle = (360 / shown.length) * i;
-                return (
-                  <li key={s} className="absolute left-1/2 top-1/2 h-0 w-0" style={{ transform: `rotate(${angle}deg) translateY(-8.5rem)` }}>
-                    <motion.span
-                      className="panel absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap px-3 py-1 text-xs font-medium text-ph sm:text-sm"
-                      style={{ rotate: -angle }}
-                      animate={{ rotate: [-angle, -angle - 360] }}
-                      transition={{ duration: 60, ease: "linear", repeat: Infinity }}
-                    >
-                      {prettyService(s)}
-                    </motion.span>
-                  </li>
-                );
-              })}
-            </motion.ul>
+            <div aria-hidden className="h-4 w-px border-l border-dashed border-ph/40" />
+            <ul aria-label="Connected services" className="flex flex-wrap justify-center gap-2">
+              {shown.map((s) => (
+                <li key={s} className="panel max-w-full truncate px-3 py-1 text-xs font-medium text-ph sm:text-sm">
+                  {prettyService(s)}
+                </li>
+              ))}
+            </ul>
           </Reveal>
           <Reveal>
             <Blurb>
-              {plural(services.length, "service")} wired into your workspace{extra > 0 ? ` (${extra} more not shown)` : ""}. Fully connected, spiritually too.
+              {plural(services.length, "service")} wired into {place}{extra > 0 ? ` (${extra} more not shown)` : ""}. Fully connected, spiritually too.
             </Blurb>
           </Reveal>
         </>
@@ -313,7 +301,7 @@ function Integrations({ r }: { r: Recap }) {
           <div className="mt-4">
             <Blurb>
               {status === "ok"
-                ? "No integrations are visible in your workspace."
+                ? `No integrations are visible in ${place}.`
                 : "Linear's read-only access doesn't let us list integrations, so we won't guess."}
             </Blurb>
           </div>
@@ -609,8 +597,30 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-function Summary({ r, onShare }: { r: Recap; onShare?: () => void }) {
+const PRINTED_NOTE = "Your report is printed. Share or save it with the Share button on the paper or in the bar below.";
+
+function Numbers({ r }: { r: Recap }) {
   const none = "n/a";
+  return (
+    <dl className="mt-1">
+      <Row k="Issues closed" v={r.totalClosed.toLocaleString("en-US")} />
+      <Row k="Archetype" v={r.archetype.name} />
+      <Row k="Peak month" v={r.peakMonth ? `${monthName(r.peakMonth.month)} (${plural(r.peakMonth.count, "issue")})` : none} />
+      <Row k="Longest streak" v={r.longestStreak ? plural(r.longestStreak.days, "day") : none} />
+      <Row k="Active days" v={r.activeDays.toLocaleString("en-US")} />
+      <Row k="Biggest project" v={r.biggestProject ? `${r.biggestProject.name} (${r.biggestProject.closedCount})` : none} />
+      <Row k="Top collaborator" v={r.topCollaborator?.name ?? none} />
+      <Row k="Comeback" v={r.comeback.status === "ok" ? `${plural(r.comeback.burstCount, "issue")} in ${plural(r.comeback.burstDays, "day")} after ${plural(r.comeback.quietDays, "quiet day")}` : none} />
+      <Row k="Signature move" v={r.signature.status === "ok" ? `${r.signature.project} + ${r.signature.label}` : none} />
+      <Row k="Photo finish" v={r.photoFinish ? `${formatDay(r.photoFinish.date)}, ${r.photoFinish.time}` : none} />
+      <Row k="Label of the year" v={r.labelOfYear?.name ?? none} />
+      <Row k="One that got away" v={r.oldestOpenIssue ? `${r.oldestOpenIssue.identifier}, ${plural(r.oldestOpenIssue.ageDays, "day")} open` : none} />
+    </dl>
+  );
+}
+
+function Summary({ r, onShare }: { r: Recap; onShare?: () => void }) {
+  const wide = useWide();
   return (
     <>
       <Reveal className="mx-auto">
@@ -618,33 +628,42 @@ function Summary({ r, onShare }: { r: Recap; onShare?: () => void }) {
           {r.viewer.name}&apos;s {r.year} in Linear
         </Kicker>
       </Reveal>
-      <Reveal className="mx-auto flex w-full justify-center">
-        <Printout recap={r} onShare={onShare} />
-      </Reveal>
-      <Reveal className="mx-auto">
-        <p className="text-center text-xs text-ph/70">Your report is printed. Share or save it with the Share button on the paper or in the bar below.</p>
-      </Reveal>
-      <Reveal className="mx-auto w-full max-w-sm">
-        <details className="panel px-4 py-2 text-left" data-no-nav>
-          <summary className="cursor-pointer py-1 font-mono text-sm uppercase tracking-widest text-ph/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber">
-            All your numbers
-          </summary>
-          <dl className="mt-1">
-            <Row k="Issues closed" v={r.totalClosed.toLocaleString("en-US")} />
-            <Row k="Archetype" v={r.archetype.name} />
-            <Row k="Peak month" v={r.peakMonth ? `${monthName(r.peakMonth.month)} (${plural(r.peakMonth.count, "issue")})` : none} />
-            <Row k="Longest streak" v={r.longestStreak ? plural(r.longestStreak.days, "day") : none} />
-            <Row k="Active days" v={r.activeDays.toLocaleString("en-US")} />
-            <Row k="Biggest project" v={r.biggestProject ? `${r.biggestProject.name} (${r.biggestProject.closedCount})` : none} />
-            <Row k="Top collaborator" v={r.topCollaborator?.name ?? none} />
-            <Row k="Comeback" v={r.comeback.status === "ok" ? `${plural(r.comeback.burstCount, "issue")} in ${plural(r.comeback.burstDays, "day")} after ${plural(r.comeback.quietDays, "quiet day")}` : none} />
-            <Row k="Signature move" v={r.signature.status === "ok" ? `${r.signature.project} + ${r.signature.label}` : none} />
-            <Row k="Photo finish" v={r.photoFinish ? `${formatDay(r.photoFinish.date)}, ${r.photoFinish.time}` : none} />
-            <Row k="Label of the year" v={r.labelOfYear?.name ?? none} />
-            <Row k="One that got away" v={r.oldestOpenIssue ? `${r.oldestOpenIssue.identifier}, ${plural(r.oldestOpenIssue.ageDays, "day")} open` : none} />
-          </dl>
-        </details>
-      </Reveal>
+      {/* Wide: the print-out and every number side by side, no disclosure. Narrow: stacked, the numbers behind a disclosure to keep the page short. */}
+      {wide ? (
+        // Wide: the print-out and every number side by side, no disclosure.
+        <div data-summary-layout="side" className="mx-auto grid w-full max-w-4xl grid-cols-[minmax(0,26rem)_minmax(0,22rem)] items-start justify-center gap-8">
+          <Reveal className="mx-auto flex w-full justify-center pt-5">
+            <Printout recap={r} onShare={onShare} />
+          </Reveal>
+          <Reveal className="w-full">
+            <section aria-labelledby="all-numbers" className="panel px-4 py-3 text-left" data-no-nav>
+              <h3 id="all-numbers" className="py-1 font-mono text-sm uppercase tracking-widest text-ph/70">
+                All your numbers
+              </h3>
+              <Numbers r={r} />
+            </section>
+            <p className="mt-3 text-center text-xs text-ph/70">{PRINTED_NOTE}</p>
+          </Reveal>
+        </div>
+      ) : (
+        // Narrow: stacked, the numbers behind a disclosure to keep the page short. The marker is a hidden element so the layout is still reported.
+        <>
+          <Reveal className="mx-auto flex w-full justify-center pt-5">
+            <Printout recap={r} onShare={onShare} />
+          </Reveal>
+          <Reveal className="mx-auto">
+            <p data-summary-layout="stack" className="text-center text-xs text-ph/70">{PRINTED_NOTE}</p>
+          </Reveal>
+          <Reveal className="mx-auto w-full max-w-sm">
+            <details className="panel px-4 py-2 text-left" data-no-nav>
+              <summary className="cursor-pointer py-1 font-mono text-sm uppercase tracking-widest text-ph/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber">
+                All your numbers
+              </summary>
+              <Numbers r={r} />
+            </details>
+          </Reveal>
+        </>
+      )}
       {r.truncated && <Footnote>Linear returned more issues than we fetch, so counts may be undercounts.</Footnote>}
     </>
   );

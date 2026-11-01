@@ -248,3 +248,15 @@ test("the retro redesign bumps the image version and keeps old signed links work
   const snap = all().find((s) => s.c === "summary")!;
   assert.match(buildShareLink(snap, SECRET).path, /^\/s\/[\w-]+\.[\w-]+$/);
 });
+
+test("the connected workspace's name is on the private recap but never in a share snapshot, token, text or image copy", () => {
+  const r = recap();
+  assert.equal(r.workspace, "Acme");
+  assert.equal(recap({ workspace: null }).workspace, null);
+  for (const snap of all(r)) {
+    assert.ok(!JSON.stringify(snap).includes("Acme"), `${snap.c} snapshot`);
+    assert.ok(!encodeSnapshot(snap, SECRET).includes("Acme"));
+    assert.ok(!JSON.stringify(describe(snap)).includes("Acme"), `${snap.c} copy`);
+    assert.ok(!shareText(snap).includes("Acme"), `${snap.c} share text`);
+  }
+});

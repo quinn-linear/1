@@ -52,7 +52,7 @@ export function fixtureRecap(name: FixtureName): Recap {
   const stats = computeStats({
     year: 2026,
     now: new Date("2027-01-02T00:00:00Z"),
-    viewer: { ...viewer, timezone: "UTC", organization: "Acme" } as never,
+    viewer: { ...viewer, timezone: "UTC", organization: long ? "Konstantinopoulou Global Platform Reliability Engineering Organization" : "Acme" } as never,
     assignedCompleted: items,
     createdCompleted: [],
     openAssigned: [],

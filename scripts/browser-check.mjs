@@ -2,7 +2,7 @@
 /**
  * Real-browser checks against a running server (see README, "Browser checks").
  *   PREVIEW_FIXTURES=1 npm run dev   (or `npm start` after a build)
- *   CHROME=/path/to/chrome BASE=http://localhost:3000 OUT=./shots node scripts/browser-check.mjs [landing|boot|dust|drag|story|print|dock|fullscreen|art|recapui|all]
+ *   CHROME=/path/to/chrome BASE=http://localhost:3000 OUT=./shots node scripts/browser-check.mjs [landing|boot|dust|moth|drag|drop|integrations|summary|story|print|dock|fullscreen|art|recapui|all]
  * Drives headless Chrome over the DevTools protocol (no extra dependencies) and
  * fails (exit 1) if the landing scrolls or has button clutter, the dragged
  * cassette is ever covered or a drop does the wrong thing (grant, miss, keyboard,
@@ -217,6 +217,34 @@ async function dust() {
   await mouse("mouseReleased", pos.fx - 260, pos.fy - 200);
 }
 
+/** The moth: arrives after a quiet start, flutters inside the beam's box, leaves; never with reduced motion or a cropped-out beam. */
+async function moth() {
+  const flag = () => evaluate(`document.querySelector("[data-dust]")?.dataset.moth ?? ""`);
+  await viewport("desktop");
+  await go("/");
+  check((await flag()) !== "1", "moth: not there at the start (quiet gaps)");
+  let seen = 0;
+  let shots = 0;
+  let gone = false;
+  for (let i = 0; i < 400 && !gone; i++) {
+    await sleep(250);
+    const f = await flag();
+    if (f === "1") {
+      seen++;
+      if (seen === 8 || seen === 24) await shot(`moth-desktop-${++shots}`);
+    } else if (seen > 0) gone = true;
+  }
+  check(seen > 8 && gone, `moth: arrives, flutters (${seen} samples) and departs`);
+  check(await evaluate(`(() => { const c = document.querySelector("[data-dust]"); return c.getAttribute("aria-hidden") === "true" && getComputedStyle(c).pointerEvents === "none"; })()`), "moth: canvas stays aria-hidden and pointer-events none");
+  await go("/", { reduced: true });
+  await sleep(25000);
+  check((await flag()) === "", "moth: omitted under reduced motion");
+  await viewport("phone");
+  await go("/");
+  await sleep(25000);
+  check((await flag()) === "", "moth: never starts while the beam is cropped out (phone)");
+}
+
 async function boot() {
   await viewport("desktop");
   await go("/");
@@ -250,7 +278,13 @@ async function boot() {
 
 const cassetteState = `(() => { const c = document.querySelector("[data-cassette]"), p = document.querySelector("[data-pet]"); return { cassette: c.dataset.state, pet: p.dataset.state, screen: document.querySelector(".pet-terminal").innerText.trim() }; })()`;
 const cassetteTop = `(() => { const b = document.querySelector("[data-cassette]"), r = b.getBoundingClientRect(); const pts = [[.5,.5],[.5,.15],[.2,.8],[.8,.8]]; return pts.every(([a, c]) => document.elementFromPoint(r.left + r.width * a, r.top + r.height * c)?.closest("[data-cassette]") === b) && getComputedStyle(b).zIndex === "2147483647"; })()`;
-const centers = `(() => { const f = document.querySelector("[data-cassette]").getBoundingClientRect(), p = document.querySelector(".pet-screen-zone.crt").getBoundingClientRect(); return { fx: f.left + f.width / 2, fy: f.top + f.height / 2, px: p.left + p.width / 2, py: p.top + p.height / 2 }; })()`;
+const centers = `(() => {
+  const f = document.querySelector("[data-cassette]").getBoundingClientRect(), p = document.querySelector(".pet-screen-zone.crt").getBoundingClientRect(), t = document.querySelector("[data-pet]").getBoundingClientRect();
+  // A point inside the viewport but outside the (expanded) drop target, to pull the tape out to before dropping it in.
+  const cx = f.left + f.width / 2;
+  const away = t.top > 24 ? [cx, t.top / 2] : t.bottom < innerHeight - 24 ? [cx, (t.bottom + innerHeight) / 2] : t.left > 24 ? [t.left / 2, f.top + f.height / 2] : [(t.right + innerWidth) / 2, f.top + f.height / 2];
+  return { fx: f.left + f.width / 2, fy: f.top + f.height / 2, px: p.left + p.width / 2, py: p.top + p.height / 2, ax: away[0], ay: away[1], t: { l: t.left, t: t.top, w: t.width, h: t.height } };
+})()`;
 
 async function drag() {
   for (const name of ["desktop", "phone", "phone-landscape"]) {
@@ -260,9 +294,11 @@ async function drag() {
     check(await evaluate(`document.querySelector("[data-cassette]").parentElement === document.body`), `drag ${name}: cassette is on document.body, outside every clipping/stacking context`);
     const before = authRequests();
     await mouse("mousePressed", pos.fx, pos.fy);
+    // Out to a point clear of the computer first (on a phone the resting tape already lies over its case), then in.
+    for (let i = 1; i <= 4; i++) await mouse("mouseMoved", pos.fx + ((pos.ax - pos.fx) * i) / 4, pos.fy + ((pos.ay - pos.fy) * i) / 4);
     let allTop = true, glowedOver = false, dimWhileFar = true;
     for (let i = 1; i <= 14; i++) {
-      const x = pos.fx + ((pos.px - pos.fx) * i) / 14, y = pos.fy + ((pos.py - pos.fy) * i) / 14;
+      const x = pos.ax + ((pos.px - pos.ax) * i) / 14, y = pos.ay + ((pos.py - pos.ay) * i) / 14;
       await mouse("mouseMoved", x, y);
       await sleep(40);
       allTop &&= await evaluate(cassetteTop);
@@ -361,6 +397,126 @@ async function drag() {
   const rm = await evaluate(`({ anim: getComputedStyle(document.querySelector(".access-granted")).animationName, float: getComputedStyle(document.querySelector(".cassette-float")).animationName })`);
   check(rm.anim === "none" && rm.float === "none", `reduced motion: no glow animation and no floating (${JSON.stringify(rm)})`);
   await sleep(1500);
+}
+
+/** Where in the drop target (fractions of its box) a few parts of the computer sit: the screen, the keyboard and the built-in cassette deck. */
+const PARTS = { screen: [0.5, 0.3], keyboard: [0.664, 0.769], deck: [0.2415, 0.7174] };
+
+/** Press the tape, walk it through `waypoints`, release, and say whether sign-in started. */
+async function dropVia(waypoints, wait = 1900) {
+  const pos = await evaluate(centers);
+  const before = authRequests();
+  await mouse("mousePressed", pos.fx, pos.fy);
+  let at = [pos.fx, pos.fy];
+  for (const [x, y] of waypoints(pos)) {
+    for (let i = 1; i <= 5; i++) await mouse("mouseMoved", at[0] + ((x - at[0]) * i) / 5, at[1] + ((y - at[1]) * i) / 5);
+    at = [x, y];
+    await sleep(60);
+  }
+  const glow = (await evaluate(cassetteState)).pet;
+  await mouse("mouseReleased", at[0], at[1]);
+  await sleep(wait);
+  return { auth: authRequests() - before, glow, state: await evaluate(cassetteState).catch(() => null) };
+}
+
+/** The drop target covers the whole computer with a little forgiveness, and only a deliberate drag into it signs in. */
+async function drop() {
+  const inTarget = (f) => (p) => [p.t.l + p.t.w * f[0], p.t.t + p.t.h * f[1]];
+  for (const name of ["desktop", "phone-landscape"]) {
+    await viewport(name);
+    for (const [part, f] of Object.entries(PARTS)) {
+      await go("/");
+      const r = await dropVia((p) => [[p.ax, p.ay], inTarget(f)(p)]);
+      check(r.auth === 1 && r.glow === "hover", `drop ${name}: letting go on the ${part} signs in once (auth ${r.auth}, glow ${r.glow})`);
+    }
+    // Just outside the case's edge but inside the margin: forgiven.
+    await go("/");
+    const near = await dropVia((p) => [[p.ax, p.ay], [p.t.l + 6, p.t.t + p.t.h * 0.5]]);
+    check(near.auth === 1, `drop ${name}: a little beside the case still counts (auth ${near.auth})`);
+    // Clearly outside: nothing, and the tape returns.
+    await go("/");
+    const out = await dropVia((p) => [[p.ax, p.ay]], 1200);
+    check(out.auth === 0 && out.state?.pet === "idle" && out.state?.cassette === "resting", `drop ${name}: released away from the computer does nothing ${JSON.stringify(out.state)}`);
+    // Released where it lay, or nudged a little: nothing.
+    await go("/");
+    const nudge = await dropVia((p) => [[p.fx + 14, p.fy + 10]], 1200);
+    check(nudge.auth === 0 && nudge.state?.pet === "idle", `drop ${name}: a nudge where the tape lies does not sign in (auth ${nudge.auth})`);
+    // Pressed and released without moving: that is a tap, handled elsewhere (once).
+  }
+  // A phone's crop leaves the tape lying over the case: dragging around inside the target, never leaving it, is not a sign-in.
+  await viewport("phone");
+  await go("/");
+  const p0 = await evaluate(centers);
+  const restOver = p0.fx >= p0.t.l && p0.fx <= p0.t.l + p0.t.w && p0.fy >= p0.t.t && p0.fy <= p0.t.t + p0.t.h;
+  console.log(`note: phone: the resting tape ${restOver ? "lies over" : "is clear of"} the drop target`);
+  const stay = await dropVia((p) => [[p.px, p.py], [p.fx, p.fy + 5]], 1200);
+  check(stay.auth === 0 && stay.state?.pet === "idle", `drop phone: dragging within the target without entering it, then letting go, does not sign in (auth ${stay.auth})`);
+  await go("/");
+  const around = await dropVia((p) => [[p.ax, p.ay], [p.px, p.py]]);
+  check(around.auth === 1, `drop phone: out and back in signs in once (auth ${around.auth})`);
+  // Keyboard and tap stay separate and intentional: one redirect each.
+  await go("/");
+  const t0 = authRequests();
+  await evaluate(`document.querySelector("[data-cassette]").click()`);
+  await sleep(1900);
+  check(authRequests() - t0 === 1, "drop: a click or tap on the cassette still signs in once");
+}
+
+/** Integrations: the workspace's name, and no overlap at any count. */
+async function integrations() {
+  const probe = `(() => {
+    const sec = document.querySelector("section[aria-label=Integrations]"), hub = sec.querySelector("[data-workspace]"), chips = [...sec.querySelectorAll("ul[aria-label='Connected services'] li")];
+    const fit = document.querySelector("[data-fit-scale]").getBoundingClientRect();
+    const rs = [hub, ...chips].filter(Boolean).map((e) => e.getBoundingClientRect());
+    let overlaps = 0;
+    for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) { const a = rs[i], b = rs[j]; if (a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5) overlaps++; }
+    const out = rs.filter((r) => r.left < fit.left - 1 || r.right > fit.right + 1 || r.top < fit.top - 1 || r.bottom > fit.bottom + 1).length;
+    const clipped = [hub, ...chips].filter(Boolean).filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflow !== "visible" && !getComputedStyle(e).textOverflow.includes("ellipsis")).length;
+    return { chips: chips.length, hub: hub?.innerText.replace(/\\s+/g, " ").trim() ?? null, overlaps, out, clipped, text: sec.innerText, overflow: document.querySelector("[data-fit-scale]").hasAttribute("data-fit-overflow") };
+  })()`;
+  for (const name of ["desktop", "phone", "phone-small", "phone-landscape", "phone-landscape-short"]) {
+    await viewport(name);
+    for (const n of [1, 2, 3, 5, 8, 12]) {
+      await go(`/preview/full?card=integrations&services=${n}`, { reduced: true });
+      const r = await evaluate(probe);
+      const want = Math.min(n, 8);
+      check(r.chips === want && r.overlaps === 0 && r.out === 0 && !r.overflow && /WORKSPACE\s+ACME|Workspace\s+Acme/i.test(r.hub ?? ""), `integrations ${name} x${n}: ${r.chips} chips, no overlaps, inside the card, workspace named ${JSON.stringify(r.hub)} (overlaps ${r.overlaps}, outside ${r.out})`);
+      check(r.text.includes("Acme") && !/your workspace/i.test(r.text.replace(/not necessarily yours personally/i, "")), `integrations ${name} x${n}: the actual workspace name replaces "your workspace"`);
+      if (n === 8 && ["desktop", "phone", "phone-landscape"].includes(name)) await shot(`integrations-${name}-8`);
+    }
+  }
+  await viewport("phone");
+  await go("/preview/long?card=integrations&services=9", { reduced: true });
+  const long = await evaluate(probe);
+  check(long.overlaps === 0 && long.out === 0 && !long.overflow && /Konstantinopoulou/i.test(long.hub ?? ""), `integrations: a very long workspace name wraps without overlap (${JSON.stringify({ o: long.overlaps, out: long.out })})`);
+  await shot("integrations-phone-long");
+  await go("/preview/full?card=integrations&services=3&workspace=none", { reduced: true });
+  const none = await evaluate(probe);
+  check(/your/i.test(none.hub ?? "") && /your workspace/i.test(none.text) && none.overlaps === 0, `integrations: without a name it falls back to "your workspace" ${JSON.stringify(none.hub)}`);
+  // Private only: the share dialog, its preview and its link never carry the workspace name.
+  await viewport("desktop");
+  await go("/preview/full?card=integrations&services=3", { reduced: true });
+  await evaluate(`document.querySelector('[aria-label^="Share this card"]').click()`);
+  await sleep(1500);
+  const shared = await evaluate(`(() => { const d = document.querySelector("dialog[open]"); if (!d) return null; return [d.innerText, ...[...d.querySelectorAll("input,textarea")].map((e) => e.value), ...[...d.querySelectorAll("a[href],img[src]")].map((e) => e.href ?? e.src)].join("\\n"); })()`);
+  check(shared !== null && !/acme/i.test(shared), `integrations: the share dialog, link and preview do not name the workspace (${shared === null ? "dialog did not open" : "checked " + shared.length + " chars"})`);
+}
+
+/** The final card shows the print-out and every number side by side when wide, stacked when narrow. */
+async function summary() {
+  for (const name of ["desktop", "laptop", "phone", "phone-small", "phone-landscape", "zoom200"]) {
+    await viewport(name);
+    await go("/preview/full?card=summary", { reduced: true });
+    const r = await evaluate(`(() => {
+      const lay = document.querySelector("[data-summary-layout]"), pr = document.querySelector("[data-print]").getBoundingClientRect(), fit = document.querySelector("[data-fit-scale]").getBoundingClientRect();
+      const nums = [...document.querySelectorAll("dl")].find((d) => /issues closed/i.test(d.innerText)), nr = nums?.getBoundingClientRect(), det = document.querySelector("details");
+      const shown = !!nums && nr.width > 0 && nr.height > 0 && getComputedStyle(nums).visibility !== "hidden" && (!det || det.open);
+      return { mode: lay?.dataset.summaryLayout, details: !!det, open: det?.open ?? null, shown, side: !!nr && pr.right <= nr.left + 1 && Math.min(pr.bottom, nr.bottom) > Math.max(pr.top, nr.top), overlap: !!nr && pr.left < nr.right && nr.left < pr.right && pr.top < nr.bottom && nr.top < pr.bottom, inFit: [pr, nr].filter(Boolean).every((b) => b.left >= fit.left - 1 && b.right <= fit.right + 1 && b.top >= fit.top - 1 && b.bottom <= fit.bottom + 1), overflow: document.querySelector("[data-fit-scale]").hasAttribute("data-fit-overflow"), heading: !!document.querySelector("#all-numbers") };
+    })()`);
+    if (VIEWPORTS[name][0] >= 900) check(r.mode === "side" && !r.details && r.shown && r.side && !r.overlap && r.inFit && !r.overflow && r.heading, `summary ${name}: print-out and All your numbers are side by side by default, no disclosure ${JSON.stringify(r)}`);
+    else check(r.mode === "stack" && r.details && !r.overlap && r.inFit && !r.overflow, `summary ${name}: narrow screens stack them, numbers behind a disclosure, nothing overlapping or clipped ${JSON.stringify(r)}`);
+    if (["desktop", "phone", "phone-landscape"].includes(name)) await shot(`summary-${name}`);
+  }
 }
 
 const dockInfo = `(() => {
@@ -475,6 +631,8 @@ async function fullscreen() {
     const g = await evaluate(`(() => { const d = document.querySelector('[role=dialog]'); return { open: !!d, focus: document.activeElement?.textContent, title: d?.querySelector("h2")?.textContent }; })()`);
     check(g.open && /Enter recap in full screen/.test(g.focus ?? "") && g.title === "Your recap is ready", `enter screen: dialog with the primary action focused ${JSON.stringify(g)}`);
     await shot("enter-recap");
+    const gate = await evaluate(`(() => { const t = document.body.innerText, g = document.querySelector("[data-enter-gate]"), c = getComputedStyle(g).backgroundColor, h = document.documentElement.innerHTML; return { t, bg: c, covers: g.getBoundingClientRect().width >= innerWidth && g.getBoundingClientRect().height >= innerHeight, story: !!document.querySelector("[data-fit-scale], .story-crt, section[aria-label], dl, [data-print], .dock-pill, nav[aria-label='Story progress']"), leak: /Alan|Acme|Apollo|issues closed|closed/i.test(t), leakHtml: /Acme|Apollo/.test(h.replace(/<script[\s\S]*?<\/script>/g, "")) }; })()`);
+    check(gate.bg === "rgb(10, 9, 18)" && gate.covers && !gate.story && !gate.leak && !gate.leakHtml, `enter screen: an opaque neutral backdrop, and no recap content in the DOM or on screen behind it ${JSON.stringify({ bg: gate.bg, covers: gate.covers, story: gate.story, leak: gate.leak, leakHtml: gate.leakHtml })}`);
     await evaluate(`[...document.querySelectorAll("[role=dialog] button")].find((b) => /enter recap/i.test(b.textContent)).click()`);
     await sleep(300);
     check(await evaluate(`window.__fs.requests === 1 && !document.querySelector("[role=dialog]") && !!${exitBtn}`), "enter screen: 'Enter recap' requests full screen from that click and starts the story");
@@ -665,7 +823,11 @@ try {
   if (all || which === "landing") await landing();
   if (all || which === "boot") await boot();
   if (all || which === "dust") await dust();
+  if (all || which === "moth") await moth();
   if (all || which === "drag") await drag();
+  if (all || which === "drop") await drop();
+  if (all || which === "integrations") await integrations();
+  if (all || which === "summary") await summary();
   if (all || which === "story") for (const f of (process.env.FIXTURES ?? "full,sparse,zero,long").split(",")) await story(f);
   if (all || which === "print" || which === "disk") await print();
   if (all || which === "dock") await dock();

@@ -21,7 +21,7 @@ type Cols = 1 | 2 | 3;
  * even the smallest legible scale doesn't fit (extreme zoom, tiny windows) does
  * the card scroll; that is the one documented accessibility fallback.
  */
-export function Fit({ children }: { children: ReactNode }) {
+export function Fit({ children, maxWidth = MAX_WIDTH }: { children: ReactNode; /** Widest single-column layout before scaling; the final card allows more when it lays two panels side by side. */ maxWidth?: number }) {
   const outer = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState<FitResult & { width: number; height: number; cols: Cols }>({ scale: 1, overflow: false, width: MAX_WIDTH, height: 0, cols: 1 });
@@ -32,7 +32,7 @@ export function Fit({ children }: { children: ReactNode }) {
     if (!o || !i) return;
     const available = o.clientHeight;
     const run = (cols: Cols) => {
-      const max = MAX_WIDTH_BY_COLS[cols];
+      const max = cols === 1 ? maxWidth : MAX_WIDTH_BY_COLS[cols];
       const width = (s: number) => Math.min(o.clientWidth / s, max);
       i.dataset.cols = String(cols);
       const res = chooseScale(available, (s) => {
@@ -53,7 +53,7 @@ export function Fit({ children }: { children: ReactNode }) {
     i.dataset.cols = String(best.cols);
     const next = { ...best.res, width: best.w, height: i.offsetHeight, cols: best.cols };
     setFit((prev) => (prev.scale === next.scale && prev.overflow === next.overflow && prev.width === next.width && prev.height === next.height && prev.cols === next.cols ? prev : next));
-  }, []);
+  }, [maxWidth]);
 
   useLayoutEffect(() => {
     measure();

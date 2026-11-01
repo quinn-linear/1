@@ -4,7 +4,7 @@ import { animate, motion, useMotionValue, useReducedMotion } from "framer-motion
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ACCESS_GRANTED, CONNECTING, grantHold, grantReducer } from "@/lib/retro/cassette";
-import { TAP_SLOP_PX, centeredOffset, clampOffset, containsPoint, type Box } from "@/lib/retro/drag";
+import { TAP_SLOP_PX, centeredOffset, clampOffset, containsPoint, isIntentionalDrop, startIntent, updateIntent, type Box, type DragIntent } from "@/lib/retro/drag";
 import { CASSETTE_REST, PET_ART, PET_FOCUS, PET_SCREEN } from "@/lib/retro/art";
 import { coverPlacement, restingBox } from "@/lib/retro/cover";
 import { BOOT_LABEL, LOGO_RADIUS, LOGO_VIEWBOX, logoRows, logoSchedule } from "@/lib/retro/logo";
@@ -23,7 +23,7 @@ const LOGO_ROWS = logoRows();
  * The landing screen: the PET photograph fills the whole viewport, its screen
  * shows only the Linear mark and a blinking cursor, and a cassette tape lies on
  * the notepad at the lower right. Drag the cassette onto the
- * computer (the screen glows while it is over it) and let go: the screen says
+ * computer (the screen glows while a drop would be accepted) and let go: the screen says
  * ACCESS GRANTED and, a moment later, this tab goes to Linear's real read-only
  * authorization page (`startPath`). The cassette is also a single focusable
  * control: Enter, Space or a tap does the same without dragging. There is no
@@ -33,7 +33,7 @@ const LOGO_ROWS = logoRows();
  * it is above the computer and every clipping or stacking context while it is
  * dragged. Its resting spot is the notepad's place on the picture, mapped through
  * the same cover crop as the screen overlay (`lib/retro/cover.ts`) and kept whole
- * inside the viewport; the drop target (the computer) is measured at the moment of
+ * inside the viewport; the drop target (the whole computer, a little generously: screen, keyboard, cassette deck) is measured at the moment of
  * every move and release, so hit testing follows the crop. A drop elsewhere springs it back. The
  * grant can only happen once, so a second drop, tap or key press never starts a
  * second redirect.
@@ -49,7 +49,7 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
   const petRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<{ width: number; height: number } | null>(null);
   const [dragging, setDragging] = useState(false);
-  const press = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
+  const press = useRef<{ x: number; y: number; moved: boolean; id: number; intent: DragIntent } | null>(null);
   const suppressClick = useRef(false);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -143,7 +143,7 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
   const onDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
     if (launched.current || !e.isPrimary || e.button > 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    press.current = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId };
+    press.current = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId, intent: startIntent(e.clientX, e.clientY, overPet(e)) };
   };
   const onMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
     const p = press.current;
@@ -159,7 +159,8 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
     const o = clampOffset(rest, dx, dy, { width: window.innerWidth, height: window.innerHeight });
     x.set(o.x);
     y.set(o.y);
-    dispatch({ type: overPet(e) ? "enter" : "leave" });
+    p.intent = updateIntent(p.intent, e.clientX, e.clientY, overPet(e));
+    dispatch({ type: isIntentionalDrop(p.intent, overPet(e), rest.width) ? "enter" : "leave" });
   };
   const onUp = (e: ReactPointerEvent<HTMLButtonElement>) => {
     const p = press.current;
@@ -171,7 +172,9 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
     // The browser fires a click after a drag that ends on the same element; it must not count as a tap.
     suppressClick.current = true;
     window.setTimeout(() => (suppressClick.current = false), 0);
-    const over = overPet(e);
+    p.intent = updateIntent(p.intent, e.clientX, e.clientY, overPet(e));
+    // Only a deliberate drop counts: over the computer now, come in from outside, and moved a real distance.
+    const over = !!rest && isIntentionalDrop(p.intent, overPet(e), rest.width);
     dispatch({ type: "release", over });
     if (over) grant();
     else home();
