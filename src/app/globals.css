@@ -303,10 +303,17 @@ input.term-input {
   height: calc(var(--sh) / var(--vh) * 100%);
 }
 
+.pet-beam-zone {
+  left: calc((var(--bx) - var(--vx)) / var(--vw) * 100%);
+  top: calc((var(--by) - var(--vy)) / var(--vh) * 100%);
+  width: calc(var(--bw) / var(--vw) * 100%);
+  height: calc(var(--bh) / var(--vh) * 100%);
+}
+
 .pet-terminal {
   font-size: var(--fs);
   line-height: 0.95;
-  padding: 3% 4%;
+  padding: 6% 8%;
 }
 
 /* Narrow (or short and narrow) screens crop in on the monitor. */
@@ -324,7 +331,7 @@ input.term-input {
 
 /*
  * Landing layout: one screen, no page scroll. Portrait/narrow stacks the
- * computer over the dock (drive, floppy, keys); landscape puts them side by
+ * computer over the dock (the cassette and sound toggle); landscape puts them side by
  * side. Both cells are `minmax(0, ...)` so the picture and the drive are sized
  * from what is left after the header, never the other way round.
  */
@@ -358,8 +365,8 @@ input.term-input {
 /* Where the cassette rests: as big as the dock allows, never wider than a comfortable size. */
 .cassette-rest {
   flex: none;
-  aspect-ratio: 200 / 130;
-  width: min(100cqw, calc(100cqh * 200 / 130), 17rem);
+  aspect-ratio: 840 / 457;
+  width: min(100cqw, calc(100cqh * 840 / 457), 21rem);
 }
 
 /* The cassette hovers, very slightly; still while held or accepted, and under reduced motion. */
@@ -766,4 +773,22 @@ input.term-input {
   outline: 2px solid var(--color-lav);
   outline-offset: 3px;
   border-radius: 999px;
+}
+
+/* The print-out feeds out of the printer line by line; instant under reduced motion. */
+.print-feed {
+  animation: print-feed 1.6s steps(26, end) 0.15s backwards;
+}
+
+@keyframes print-feed {
+  from { clip-path: inset(0 0 100% 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+.reveal-skip .print-feed {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .print-feed { animation: none; }
 }

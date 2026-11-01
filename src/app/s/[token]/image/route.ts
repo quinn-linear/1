@@ -16,7 +16,7 @@ const fail = (status: number, message: string) =>
  * is bounded: the token is length-checked and signature-verified before it's
  * decoded, `f` must be `story` or `og`, and no remote URL is ever fetched.
  * Output depends only on the token and design version, so it is safe to cache publicly.
- * Links minted under an older design (`r=pet2`, `r=pet1`, `r=holo2`, or no `r` at all) still work and are drawn in the current design.
+ * Links minted under an older design (`r=pet3`, `r=pet2`, `r=pet1`, `r=holo2`, or no `r` at all) still work and are drawn in the current design.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

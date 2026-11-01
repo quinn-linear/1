@@ -288,7 +288,7 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
             style={{ position: "fixed", left: rest.left, top: rest.top, width: rest.width, height: rest.height, zIndex: TOP_LAYER, x, y, rotate: tilt, opacity, padding: 0, background: "none", border: 0 }}
           >
             <span className={`cassette-float block h-full w-full ${dragging || accepted ? "cassette-still" : ""}`}>
-              <Cassette year={year} className="pointer-events-none block h-auto w-full drop-shadow-[0_8px_0_rgb(0_0_0/0.45)]" />
+              <Cassette className="pointer-events-none block h-auto w-full drop-shadow-[0_8px_0_rgb(0_0_0/0.45)]" />
             </span>
           </motion.button>,
           document.body,

@@ -99,20 +99,31 @@ test("every card accent is the lavender or amber accent", () => {
   for (const id of CARD_IDS) for (const c of CARD_ACCENTS[id]) assert.ok(allowed.has(c), `${id} ${c}`);
 });
 
-test("the supplied PET photo matches the numbers the terminal overlay is pinned with", async () => {
-  const { readFileSync } = await import("node:fs");
-  const { PET_ART, PET_SCREEN, PET_VIEWS } = await import("./art.ts");
-  const png = readFileSync(new URL("../../../public/retro/pet.png", import.meta.url));
-  assert.equal(png.readUInt32BE(16), PET_ART.width);
-  assert.equal(png.readUInt32BE(20), PET_ART.height);
-  const s = PET_SCREEN;
-  assert.ok(s.x > 0 && s.y > 0 && s.x + s.w < 1 && s.y + s.h < 1);
-  // The measured black CRT opening (x 596-1075, y 148-441) must contain the overlay.
-  assert.ok(s.x * PET_ART.width >= 596 && (s.x + s.w) * PET_ART.width <= 1075);
-  assert.ok(s.y * PET_ART.height >= 148 && (s.y + s.h) * PET_ART.height <= 441);
+test("the supplied halftone PET photo matches the numbers the terminal overlay is pinned with", async () => {
+  const { PET_ART, PET_SCREEN, PET_VIEWS, CASSETTE_ART } = await import("./art.ts");
+  const sharp = (await import("sharp")).default;
+  const file = new URL("../../../public/retro/pet.webp", import.meta.url);
+  const meta = await sharp(file.pathname).metadata();
+  assert.equal(meta.width, PET_ART.width);
+  assert.equal(meta.height, PET_ART.height);
+  // The terminal sits on the blank glass: nearly every pixel inside the rectangle (inset past the rounded corners) is dark, and the bezel just outside it is lighter.
+  const { data, info } = await sharp(file.pathname).greyscale().raw().toBuffer({ resolveWithObject: true });
+  const px = (x: number, y: number) => data[Math.round(y) * info.width + Math.round(x)];
+  const s = { x: PET_SCREEN.x * PET_ART.width, y: PET_SCREEN.y * PET_ART.height, w: PET_SCREEN.w * PET_ART.width, h: PET_SCREEN.h * PET_ART.height };
+  let dark = 0;
+  let total = 0;
+  for (let y = s.y + s.h * 0.2; y < s.y + s.h * 0.8; y += 4) for (let x = s.x + s.w * 0.1; x < s.x + s.w * 0.9; x += 4, total++) if (px(x, y) < 70) dark++;
+  assert.ok(dark / total > 0.97, `glass is dark (${dark}/${total})`);
+  assert.ok(px(s.x - 40, s.y + s.h / 2) > 100 && px(s.x + s.w + 40, s.y + s.h / 2) > 100, "the bezel sits outside the left and right edges");
+  assert.ok(px(s.x + s.w / 2, s.y - 14) > 100 && px(s.x + s.w / 2, s.y + s.h + 14) > 100, "and above and below");
   // The phone crop keeps the whole screen in view.
   const v = PET_VIEWS.tight;
-  assert.ok(v.x <= s.x && v.y <= s.y && v.x + v.w >= s.x + s.w && v.y + v.h >= s.y + s.h);
+  assert.ok(v.x <= PET_SCREEN.x && v.y <= PET_SCREEN.y && v.x + v.w >= PET_SCREEN.x + PET_SCREEN.w && v.y + v.h >= PET_SCREEN.y + PET_SCREEN.h);
+  // The cassette keeps its own aspect ratio and a transparent background.
+  const cm = await sharp(new URL("../../../public/retro/cassette.webp", import.meta.url).pathname).metadata();
+  assert.equal(cm.width, CASSETTE_ART.width);
+  assert.equal(cm.height, CASSETTE_ART.height);
+  assert.equal(cm.hasAlpha, true);
 });
 
 const parse = (points: string) => points.split(" ").map((p) => p.split(",").map(Number) as [number, number]);

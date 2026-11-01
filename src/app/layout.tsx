@@ -8,7 +8,7 @@ import "./globals.css";
 const vt323 = VT323({ variable: "--font-vt323", subsets: ["latin"], weight: "400" });
 
 const TITLE = "Linear Wrapped 2026";
-const DESCRIPTION = "Your year in Linear, wrapped. Insert the floppy, sign in with read-only access and see what you closed, your work archetype, your peak month and more.";
+const DESCRIPTION = "Your year in Linear, wrapped. Drag the cassette onto the computer, sign in with read-only access and see what you closed, your work archetype, your peak month and more.";
 
 // Sets the base for relative metadata URLs. Configure `SITE_URL` (see README) for a custom domain.
 export const metadata: Metadata = {

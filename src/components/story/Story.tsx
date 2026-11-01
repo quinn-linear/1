@@ -15,7 +15,7 @@ import { EnterRecap } from "./EnterRecap";
 import { ShareDialog } from "./ShareDialog";
 import { useFullscreen } from "./useFullscreen";
 
-// `data-no-nav` marks areas with their own gestures (the disk card), so they never turn story pages.
+// `data-no-nav` marks areas with their own gestures (none right now), so they never turn story pages.
 const INTERACTIVE = "button, a, form, input, select, textarea, summary, [data-no-nav]";
 
 const accentVars = (id: CardId) => ({ "--a1": CARD_ACCENTS[id][0], "--a2": CARD_ACCENTS[id][1] }) as CSSProperties;

@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     url: "/",
     siteName: "Linear Wrapped",
     title: `Linear Wrapped ${YEAR}`,
-    description: "Your year in Linear, wrapped. Insert the floppy, sign in with read-only access and see what you closed, your work archetype, your peak month and more.",
+    description: "Your year in Linear, wrapped. Drag the cassette onto the computer, sign in with read-only access and see what you closed, your work archetype, your peak month and more.",
   },
 };
 
@@ -26,7 +26,7 @@ const errors: Record<string, string> = {
 
 /**
  * The landing is one screen: everything essential (title, computer, drive and
- * floppy, keys, the plain sign-in link) is sized from the viewport so nothing
+ * cassette, the plain sign-in link) is sized from the viewport so nothing
  * needs scrolling. The page only scrolls as a last resort, when the viewport is
  * so small (extreme zoom) that the content can't shrink any further.
  */

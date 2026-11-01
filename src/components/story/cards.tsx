@@ -8,7 +8,7 @@ import { SPARSE_NOTE, recapDensity } from "@/lib/sparse";
 import { ClockFace, ComebackTimeline, ConstellationChart, FinishLine, ScopeChart } from "./recapCharts";
 import { AgeTrack, DayChain, Meter, MonthChart, Ring, YearSpark } from "./charts";
 import { ArchetypeArt } from "./ArchetypeArt";
-import { DiskCard } from "./DiskCard";
+import { Printout } from "./Printout";
 import { Avatar, Blurb, CountUp, Footnote, Headline, Huge, Kicker, Reveal, sunny } from "./primitives";
 
 export const CARD_TITLES: Record<CardId, string> = {
@@ -619,10 +619,10 @@ function Summary({ r }: { r: Recap }) {
         </Kicker>
       </Reveal>
       <Reveal className="mx-auto flex w-full justify-center">
-        <DiskCard recap={r} />
+        <Printout recap={r} />
       </Reveal>
       <Reveal className="mx-auto">
-        <p className="text-center text-xs text-ph/70">Tilt the disk, or touch and drag. Download it from Share.</p>
+        <p className="text-center text-xs text-ph/70">Your report is printed. Download or share it with the Share button.</p>
       </Reveal>
       <Reveal className="mx-auto w-full max-w-sm">
         <details className="panel px-4 py-2 text-left" data-no-nav>
