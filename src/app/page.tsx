@@ -1,7 +1,20 @@
+import type { Metadata } from "next";
 import { SignInButton } from "@/components/SignInButton";
 import { START_PATH } from "@/lib/auth";
 
 const YEAR = 2026;
+
+// Only the root page is canonical "/"; other routes must not inherit it. The image comes from `opengraph-image.tsx`.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: "Linear Wrapped",
+    title: `Linear Wrapped ${YEAR}`,
+    description: "Your year in Linear, wrapped. Sign in with read-only access to see what you closed, your work archetype, your peak month and more.",
+  },
+};
 
 const teasers = [
   { label: "Issues closed", value: "???", color: "from-fuchsia-500 to-pink-500" },
