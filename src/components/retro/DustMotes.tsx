@@ -4,17 +4,17 @@ import { useReducedMotion } from "framer-motion";
 import { useEffect, useMemo, useRef } from "react";
 import { BEAM_POLYGON } from "@/lib/retro/art";
 import { makeMotes, moteAt, staticFrame, type Frame } from "@/lib/retro/dust";
-import { SPAN, makeVisit, mothAt, nextGap, type MothFrame, type Visit } from "@/lib/retro/moth";
+import { SPAN, makeMoths, mothAt, type MothFrame } from "@/lib/retro/moth";
 
 /**
- * Dust motes in the lamp's beam, and now and then a small moth that flutters in and out. One small canvas laid exactly over the beam's box
+ * Dust motes drifting in the lamp's beam, and three small moths that always flutter around the light. One small canvas laid exactly over the beam's box
  * on the picture (`.pet-beam-zone` in globals.css, from the same fractions as the
  * terminal), so it follows the picture's crop and size. It never takes pointer events or
  * a place in the accessibility tree, sits under the cassette and the screen, and does no
  * work while it is off screen (including when the crop hides the lamp, as on phones) or
- * the tab is hidden (the moth's clock stops with it, and it is only ever started while the
- * beam is on screen). Under reduced motion it draws one still, dimmer frame and no moth.
- * The moth's visits are scheduled from the effect with `Math.random`, so nothing random is
+ * the tab is hidden (the moths' clock stops with it, and it is only ever started while the
+ * beam is on screen). Under reduced motion it draws one still, dimmer frame and no moths.
+ * The moths' paths are drawn from `Math.random` in the effect, so nothing random is
  * rendered on the server.
  */
 export function DustMotes() {
@@ -37,7 +37,7 @@ export function DustMotes() {
     // Two halftone-dotted wings and a body, seen from above and tipped to its heading.
     const drawMoth = (m: MothFrame) => {
       const k = scale();
-      const half = (SPAN / 2) * k;
+      const half = (SPAN / 2) * k * m.size;
       ctx.save();
       ctx.translate(m.x * width, m.y * height);
       ctx.rotate(m.angle + Math.PI / 2);
@@ -63,7 +63,7 @@ export function DustMotes() {
       ctx.restore();
     };
 
-    const draw = (frames: Frame[], moth: MothFrame | null = null) => {
+    const draw = (frames: Frame[], moths: MothFrame[] = []) => {
       ctx.clearRect(0, 0, width, height);
       // Specks grow with the picture (the canvas is the beam's box on it), so they read the same on a laptop and a 4K screen.
       const k = scale();
@@ -81,35 +81,25 @@ export function DustMotes() {
         ctx.arc(x, y, f.r * k, 0, Math.PI * 2);
         ctx.fill();
       }
-      if (moth) drawMoth(moth);
+      for (const m of moths) drawMoth(m);
     };
 
     const t0 = performance.now();
-    // The moth runs on its own clock that only advances while frames are drawn, so a hidden tab or an off-screen beam holds it still.
+    // The moths run on their own clock that only advances while frames are drawn, so a hidden tab or an off-screen beam holds them still.
     let clock = 0;
     let last = 0;
-    let visit: Visit | null = null;
-    let visitStart = 0;
-    let nextVisit = 8 + Math.random() * 12;
+    // Three moths with their own paths, wing beats and depth, made once per mount.
+    const moths = makeMoths(Math.random);
     const frame = (now: number) => {
       raf = 0;
       if (!visible || document.hidden) return;
       clock += Math.min(0.1, last ? (now - last) / 1000 : 0);
       last = now;
-      if (!visit && clock >= nextVisit) {
-        visit = makeVisit(BEAM_POLYGON, Math.random);
-        visitStart = clock;
-      }
-      let moth: MothFrame | null = null;
-      if (visit) {
-        moth = mothAt(visit, clock - visitStart);
-        if (!moth) {
-          visit = null;
-          nextVisit = clock + nextGap(Math.random);
-        }
-      }
-      el.dataset.moth = moth ? "1" : "0";
-      draw(motes.map((m) => moteAt(m, (now - t0) / 1000)), moth);
+      const drawn = moths.map((m) => mothAt(m, clock));
+      // Read by the browser checks: how many moths are on, and where (box fractions).
+      el.dataset.moth = String(drawn.length);
+      el.dataset.mothPos = drawn.map((m) => `${m.x.toFixed(3)},${m.y.toFixed(3)}`).join(";");
+      draw(motes.map((m) => moteAt(m, (now - t0) / 1000)), drawn);
       raf = requestAnimationFrame(frame);
     };
 
@@ -150,6 +140,7 @@ export function DustMotes() {
     return () => {
       cancelAnimationFrame(raf);
       delete el.dataset.moth;
+      delete el.dataset.mothPos;
       ro?.disconnect();
       io?.disconnect();
       document.removeEventListener("visibilitychange", sync);

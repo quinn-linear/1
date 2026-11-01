@@ -217,32 +217,40 @@ async function dust() {
   await mouse("mouseReleased", pos.fx - 260, pos.fy - 200);
 }
 
-/** The moth: arrives after a quiet start, flutters inside the beam's box, leaves; never with reduced motion or a cropped-out beam. */
+/** The moths: three, always fluttering around the light inside the beam's box, each on its own path; none under reduced motion, a cropped-out beam or a hidden tab. */
 async function moth() {
-  const flag = () => evaluate(`document.querySelector("[data-dust]")?.dataset.moth ?? ""`);
+  const read = () => evaluate(`(() => { const c = document.querySelector("[data-dust]"); return { n: c?.dataset.moth ?? "", pos: (c?.dataset.mothPos ?? "").split(";").filter(Boolean).map((s) => s.split(",").map(Number)) }; })()`);
   await viewport("desktop");
   await go("/");
-  check((await flag()) !== "1", "moth: not there at the start (quiet gaps)");
-  let seen = 0;
-  let shots = 0;
-  let gone = false;
-  for (let i = 0; i < 400 && !gone; i++) {
-    await sleep(250);
-    const f = await flag();
-    if (f === "1") {
-      seen++;
-      if (seen === 8 || seen === 24) await shot(`moth-desktop-${++shots}`);
-    } else if (seen > 0) gone = true;
+  await sleep(1000);
+  const samples = [];
+  for (let i = 0; i < 24; i++) {
+    samples.push(await read());
+    if (i === 4 || i === 16) await shot(`moth-desktop-${i}`);
+    await sleep(500);
   }
-  check(seen > 8 && gone, `moth: arrives, flutters (${seen} samples) and departs`);
+  check(samples.every((s) => s.n === "3" && s.pos.length === 3), "moth: exactly three moths in every sample over 12 s (always there)");
+  const paths = [0, 1, 2].map((k) => samples.map((s) => s.pos[k]));
+  const range = (xs) => Math.max(...xs) - Math.min(...xs);
+  check(paths.every((p) => range(p.map((q) => q[0])) > 0.05 || range(p.map((q) => q[1])) > 0.05), "moth: each moth moves around between timed frames");
+  check(paths.every((p) => p.every(([x, y]) => x >= 0.03 && x <= 0.97 && y >= 0.03 && y <= 0.97)), "moth: every position stays inside the beam's box");
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  check(samples.every((s) => dist(s.pos[0], s.pos[1]) > 0.005 || dist(s.pos[1], s.pos[2]) > 0.005), "moth: they are not stacked on one another");
+  const step = (k) => samples.slice(1).map((s, i) => dist(s.pos[k], samples[i].pos[k]));
+  check([0, 1, 2].every((k) => range(step(k)) > 0.005) && new Set([0, 1, 2].map((k) => step(k).reduce((a, b) => a + b, 0).toFixed(2))).size === 3, "moth: speeds and paths are independent (not a synchronized swarm)");
   check(await evaluate(`(() => { const c = document.querySelector("[data-dust]"); return c.getAttribute("aria-hidden") === "true" && getComputedStyle(c).pointerEvents === "none"; })()`), "moth: canvas stays aria-hidden and pointer-events none");
+  // A hidden tab holds them still.
+  await evaluate(`Object.defineProperty(document, "hidden", { value: true, configurable: true }); document.dispatchEvent(new Event("visibilitychange"))`);
+  const h1 = JSON.stringify(await read());
+  await sleep(1500);
+  check(h1 === JSON.stringify(await read()), "moth: paused while the tab is hidden");
   await go("/", { reduced: true });
-  await sleep(25000);
-  check((await flag()) === "", "moth: omitted under reduced motion");
+  await sleep(1500);
+  check((await read()).n === "", "moth: omitted under reduced motion");
   await viewport("phone");
   await go("/");
-  await sleep(25000);
-  check((await flag()) === "", "moth: never starts while the beam is cropped out (phone)");
+  await sleep(1500);
+  check((await read()).n === "", "moth: never starts while the beam is cropped out (phone)");
 }
 
 async function boot() {
