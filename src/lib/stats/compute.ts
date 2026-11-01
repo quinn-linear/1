@@ -1,3 +1,4 @@
+import { classifyArchetype } from "./archetype.ts";
 import type { PersonRef, WrappedStats } from "./types.ts";
 import { dayNumber, localParts, resolveTimeZone } from "./time.ts";
 
@@ -134,6 +135,17 @@ export function computeStats(input: StatsInput): WrappedStats {
   const totalClosed = entries.length;
   const weekend = byWeekday[0] + byWeekday[6];
 
+  const completions = {
+    timestamps: entries.map((e) => e.at),
+    byHour,
+    byWeekday,
+    after9pm: byHour.slice(21).reduce((a, b) => a + b, 0),
+    before9am: byHour.slice(0, 9).reduce((a, b) => a + b, 0),
+    friday: byWeekday[5],
+    weekend,
+  };
+  const archetype = classifyArchetype({ totalClosed, timeZone, completions });
+
   return {
     year,
     timeZone,
@@ -147,15 +159,7 @@ export function computeStats(input: StatsInput): WrappedStats {
       organization: viewer.organization,
     },
     totalClosed,
-    completions: {
-      timestamps: entries.map((e) => e.at),
-      byHour,
-      byWeekday,
-      after9pm: byHour.slice(21).reduce((a, b) => a + b, 0),
-      before9am: byHour.slice(0, 9).reduce((a, b) => a + b, 0),
-      friday: byWeekday[5],
-      weekend,
-    },
+    completions,
     monthly: {
       counts: byMonth.map((count, i) => ({ month: i + 1, count })),
       peakMonth: peak === null ? null : { month: peak + 1, count: byMonth[peak] },
@@ -169,7 +173,9 @@ export function computeStats(input: StatsInput): WrappedStats {
       ageDays: Math.max(0, Math.floor((input.now.getTime() - new Date(oldest.createdAt).getTime()) / 86_400_000)),
     },
     integrations: input.integrations,
+    archetype,
     summary: {
+      archetype: archetype.id,
       totalClosed,
       activeDays: byDay.size,
       busiestDay: busiestDayEntry,

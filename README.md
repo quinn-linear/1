@@ -4,6 +4,8 @@ A Spotify Wrapped-style yearly recap for Linear (calendar year 2026). Built with
 
 ## Status
 
+Step 4 adds archetype classification on top of the step 3 stats engine (merged in #3).
+
 Step 3: server-side stats engine on top of the step 2 read-only OAuth sign-in. `/wrapped` is still a placeholder; archetypes, cards and sharing come in later PRs.
 
 ## Development
@@ -44,3 +46,14 @@ Limitations (also returned in `limitations`): `completedAt` is the latest close 
 ## Deploy
 
 Import the repo in Vercel and set the two env vars; the Next.js preset needs no other config.
+
+## Archetypes
+
+`classifyArchetype` (`src/lib/stats/archetype.ts`) is a pure function over the viewer-local `completions` counts; the result is returned as `archetype` in the stats payload (and its id as `summary.archetype`) with display name, tagline, description and the counts behind the decision. No extra API calls.
+
+- Fewer than 10 closed issues: Steady Builder (`insufficient-data`).
+- A trait qualifies at or above its share of all completions: Night Owl (local hour >= 21) 35%, Early Bird (hour < 9) 35%, Weekend Warrior (Sat/Sun) 20%, Friday Shipper 30%.
+- Several qualify: the one furthest past its own threshold wins; exact ties go Night Owl, Early Bird, Weekend Warrior, Friday Shipper.
+- None qualify: Steady Builder.
+
+Thresholds are judgment calls (no spec was given) and live in `THRESHOLD_PERCENT`. Same completion-time and 5000-issue-cap caveats as the stats apply; the live Linear schema has still not been verified.

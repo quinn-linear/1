@@ -22,6 +22,27 @@ export interface Limitation {
   message: string;
 }
 
+export type ArchetypeId = "night-owl" | "early-bird" | "friday-shipper" | "weekend-warrior" | "steady-builder";
+
+export interface Archetype {
+  id: ArchetypeId;
+  /** Display name, e.g. "Night Owl". */
+  name: string;
+  /** One-line card headline. */
+  tagline: string;
+  /** One-sentence playful blurb. */
+  description: string;
+  /** Why this was chosen: a trait passed its threshold, nothing did, or too few issues. */
+  reason: "threshold-met" | "default" | "insufficient-data";
+  /** Inputs behind the decision (viewer-local counts), for transparency. */
+  basis: {
+    totalClosed: number;
+    minCompletions: number;
+    timeZone: string;
+    traits: { id: Exclude<ArchetypeId, "steady-builder">; count: number; sharePercent: number; thresholdPercent: number }[];
+  };
+}
+
 export interface WrappedStats {
   year: number;
   timeZone: string;
@@ -86,7 +107,11 @@ export interface WrappedStats {
     | { status: "ok"; services: string[] }
     | { status: "unavailable"; services: []; reason: string };
 
+  /** Derived purely from `completions`; no extra API calls. */
+  archetype: Archetype;
+
   summary: {
+    archetype: ArchetypeId;
     totalClosed: number;
     activeDays: number;
     busiestDay: { date: string; count: number } | null;
