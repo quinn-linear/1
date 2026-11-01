@@ -11,11 +11,16 @@ export const CARD_ACCENTS: Record<CardId, [string, string]> = {
   archetype: ["#a78bfa", "#f0abfc"],
   peak: ["#34d399", "#22d3ee"],
   streak: ["#fbbf24", "#fb7185"],
+  comeback: ["#f97316", "#facc15"],
   project: ["#38bdf8", "#818cf8"],
+  constellation: ["#818cf8", "#e879f9"],
+  scope: ["#2dd4bf", "#a78bfa"],
   collaborator: ["#f472b6", "#fb923c"],
   integrations: ["#22d3ee", "#60a5fa"],
   "got-away": ["#94a3b8", "#e2e8f0"],
   label: ["#a3e635", "#2dd4bf"],
+  signature: ["#fb7185", "#fbbf24"],
+  "photo-finish": ["#e2e8f0", "#38bdf8"],
   summary: ["#c4b5fd", "#67e8f9"],
 };
 

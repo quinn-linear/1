@@ -3,6 +3,7 @@ export interface LocalParts {
   month: number; // 1-12
   day: number;
   hour: number; // 0-23
+  minute: number; // 0-59
   weekday: number; // 0 = Sunday
   date: string; // YYYY-MM-DD
 }
@@ -31,6 +32,7 @@ function formatter(tz: string) {
       month: "numeric",
       day: "numeric",
       hour: "numeric",
+      minute: "numeric",
       weekday: "short",
     });
     formatters.set(tz, f);
@@ -51,6 +53,7 @@ export function localParts(instant: string | Date, tz: string): LocalParts {
     month,
     day,
     hour: Number(p.hour) % 24,
+    minute: Number(p.minute),
     weekday: WEEKDAYS[p.weekday],
     date: `${pad(year, 4)}-${pad(month)}-${pad(day)}`,
   };
@@ -72,4 +75,9 @@ export function paddedYearWindow(year: number) {
     from: new Date(Date.UTC(year, 0, 1) - pad).toISOString(),
     to: new Date(Date.UTC(year + 1, 0, 1) + pad).toISOString(),
   };
+}
+
+/** The `YYYY-MM-DD` date `n` days after (or before, if negative) `date`. Timezone-free. */
+export function addDays(date: string, n: number): string {
+  return new Date((dayNumber(date) + n) * 86_400_000).toISOString().slice(0, 10);
 }

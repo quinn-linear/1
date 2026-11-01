@@ -1,4 +1,4 @@
-import type { ArchetypeId, WrappedStats } from "./stats/types.ts";
+import type { ArchetypeId, Comeback, PhotoFinish, ScopeSeries, WrappedStats } from "./stats/types.ts";
 
 /**
  * The only shape handed to client components. A strict projection of
@@ -19,12 +19,54 @@ export interface Recap {
   /** Creator/assignee proxy only: `sharedIssues` counts issues the two of you created/assigned to each other. */
   topCollaborator: { name: string; avatarUrl: string | null; sharedIssues: number } | null;
   labelOfYear: { name: string; count: number } | null;
+  /** Local dates and counts only; see `COMEBACK_RULES`. */
+  comeback: Comeback;
+  /** Quarterly project/label mix; see `SCOPE_RULES`. Shifts are whole percents (0-100). */
+  scope:
+    | {
+        status: "ok";
+        quarterClosed: number[];
+        qualifying: number[];
+        fromQuarter: number;
+        toQuarter: number;
+        projectShiftPercent: number;
+        labelShiftPercent: number;
+        projects: ScopeSeries;
+        labels: ScopeSeries;
+      }
+    | { status: "unavailable"; quarterClosed: number[] };
+  /** Projects by closed issues, biggest first. */
+  constellation: { stars: { name: string; closedCount: number }[]; totalProjects: number; withoutProject: number };
+  /** Project + label pair; see `SIGNATURE_RULES`. Percents are whole numbers. */
+  signature:
+    | {
+        status: "ok";
+        project: string;
+        label: string;
+        pairCount: number;
+        /** Share of this label's (eligible) issues that were in this project. */
+        labelInProjectPercent: number;
+        /** Share of all eligible issues that were in this project. */
+        projectSharePercent: number;
+        lift: number;
+        eligible: number;
+        excluded: number;
+      }
+    | { status: "unavailable"; eligible: number; excluded: number };
+  /** Latest completion of the year; no id or link. */
+  photoFinish: PhotoFinish | null;
   oldestOpenIssue: { identifier: string; title: string; ageDays: number; createdAt: string } | null;
   /** Workspace-level services, not the viewer's own connections. */
   integrations: { status: "ok" | "unavailable"; services: string[] };
   /** Lists hit the fetch cap, so counts may be undercounts. */
   truncated: boolean;
 }
+
+const cloneSeries = (x: ScopeSeries): ScopeSeries => ({
+  series: x.series.map(({ name, counts }) => ({ name, counts: [...counts] })),
+  other: [...x.other],
+  none: [...x.none],
+});
 
 const personName = (p: { name: string; displayName: string }) => p.displayName || p.name;
 
@@ -51,6 +93,41 @@ export function toRecap(s: WrappedStats): Recap {
     biggestProject: project && { name: project.name, closedCount: project.closedCount },
     topCollaborator: collab && { name: personName(collab), avatarUrl: collab.avatarUrl, sharedIssues: collab.sharedIssues },
     labelOfYear: label && { name: label.name, count: label.count },
+    comeback: { ...s.comeback },
+    scope:
+      s.scope.status === "ok"
+        ? {
+            status: "ok",
+            quarterClosed: [...s.scope.quarterClosed],
+            qualifying: [...s.scope.qualifying],
+            fromQuarter: s.scope.fromQuarter,
+            toQuarter: s.scope.toQuarter,
+            projectShiftPercent: Math.round(s.scope.projectShift * 100),
+            labelShiftPercent: Math.round(s.scope.labelShift * 100),
+            projects: cloneSeries(s.scope.projects),
+            labels: cloneSeries(s.scope.labels),
+          }
+        : { status: "unavailable", quarterClosed: [...s.scope.quarterClosed] },
+    constellation: {
+      stars: s.constellation.stars.map(({ name, closedCount }) => ({ name, closedCount })),
+      totalProjects: s.constellation.totalProjects,
+      withoutProject: s.constellation.withoutProject,
+    },
+    signature:
+      s.signatureMove.status === "ok"
+        ? {
+            status: "ok",
+            project: s.signatureMove.project.name,
+            label: s.signatureMove.label.name,
+            pairCount: s.signatureMove.pairCount,
+            labelInProjectPercent: Math.round((s.signatureMove.pairCount / s.signatureMove.labelCount) * 100),
+            projectSharePercent: Math.round((s.signatureMove.projectCount / s.signatureMove.eligible) * 100),
+            lift: s.signatureMove.lift,
+            eligible: s.signatureMove.eligible,
+            excluded: s.signatureMove.excluded,
+          }
+        : { status: "unavailable", eligible: s.signatureMove.eligible, excluded: s.signatureMove.excluded },
+    photoFinish: s.photoFinish && { ...s.photoFinish },
     oldestOpenIssue: oldest && {
       identifier: oldest.identifier,
       title: oldest.title,
@@ -88,11 +165,11 @@ export function plural(n: number, one: string, many = `${one}s`): string {
 }
 
 export type CardId =
-  | "intro" | "total" | "archetype" | "peak" | "streak" | "project"
-  | "collaborator" | "integrations" | "got-away" | "label" | "summary";
+  | "intro" | "total" | "archetype" | "peak" | "streak" | "comeback" | "project" | "constellation" | "scope"
+  | "collaborator" | "integrations" | "got-away" | "label" | "signature" | "photo-finish" | "summary";
 
-/** The fixed 11-card lineup, in order. */
+/** The fixed 16-card lineup, in order. The holographic summary stays last. */
 export const CARD_IDS: readonly CardId[] = [
-  "intro", "total", "archetype", "peak", "streak", "project",
-  "collaborator", "integrations", "got-away", "label", "summary",
+  "intro", "total", "archetype", "peak", "streak", "comeback", "project", "constellation", "scope",
+  "collaborator", "integrations", "got-away", "label", "signature", "photo-finish", "summary",
 ];

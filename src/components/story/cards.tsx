@@ -6,6 +6,7 @@ import { CARD_IDS, formatDay, monthName, plural, prettyService, type CardId, typ
 import { daysInYear, sigil } from "@/lib/share/art";
 import { CARD_ACCENTS } from "@/lib/share/theme";
 import { SPARSE_NOTE, recapDensity } from "@/lib/sparse";
+import { ClockFace, ComebackTimeline, ConstellationChart, FinishLine, ScopeChart } from "./recapCharts";
 import { AgeTrack, DayChain, Meter, MonthChart, Ring, YearSpark } from "./charts";
 import { HoloCard } from "./HoloCard";
 import { Avatar, Blurb, CountUp, Footnote, Headline, Huge, Kicker, Reveal, sunny } from "./primitives";
@@ -16,11 +17,16 @@ export const CARD_TITLES: Record<CardId, string> = {
   archetype: "Your archetype",
   peak: "Peak month",
   streak: "Longest streak",
+  comeback: "The Comeback",
   project: "Biggest project",
+  constellation: "Your year as a constellation",
+  scope: "Scope Shapeshifter",
   collaborator: "Top collaborator",
   integrations: "Integrations",
   "got-away": "The one that got away",
   label: "Label of the year",
+  signature: "Signature move",
+  "photo-finish": "Photo finish",
   summary: "Summary",
 };
 
@@ -389,6 +395,213 @@ function Label({ r }: { r: Recap }) {
   );
 }
 
+const COMEBACK_RULE = "A comeback is 14+ days with nothing closed, then 5+ issues closed within 7 days of returning. Quiet means no completions in Linear, not time off.";
+const COMEBACK_MISSING = {
+  "insufficient-history": "Needs completions on at least two different days to look for a comeback.",
+  "no-quiet-stretch": "No stretch of 14+ days without a closed issue between completions, so there was nothing to come back from.",
+  "no-burst": "There were quiet stretches, but none was followed by 5+ closed issues within 7 days of returning.",
+} as const;
+
+function Comeback({ r }: { r: Recap }) {
+  const c = r.comeback;
+  return (
+    <>
+      <Reveal>
+        <Kicker>The Comeback</Kicker>
+      </Reveal>
+      {c.status === "ok" ? (
+        <>
+          <Reveal>
+            <Huge className={`text-[24vw] sm:text-[9rem] ${sunny}`}>
+              <CountUp to={c.burstCount} />
+            </Huge>
+          </Reveal>
+          <Reveal>
+            <Headline className="text-[9vw] sm:text-5xl">
+              {c.burstCount === 1 ? "issue" : "issues"} in {plural(c.burstDays, "day")}.
+            </Headline>
+          </Reveal>
+          <Reveal className="w-full">
+            <ComebackTimeline year={r.year} data={c} />
+          </Reveal>
+          <Reveal>
+            <Blurb>
+              After {plural(c.quietDays, "quiet day")} with nothing closed ({formatDay(c.quietStart)} to {formatDay(c.quietEnd)}), you were back on {formatDay(c.returnDate)}.
+            </Blurb>
+          </Reveal>
+        </>
+      ) : (
+        <>
+          <Reveal>
+            <Headline className={sunny}>No comeback yet.</Headline>
+          </Reveal>
+          <Reveal>
+            <Missing>{COMEBACK_MISSING[c.reason]}</Missing>
+          </Reveal>
+        </>
+      )}
+      <Footnote>{COMEBACK_RULE}</Footnote>
+    </>
+  );
+}
+
+function Constellation({ r }: { r: Recap }) {
+  const c = r.constellation;
+  return (
+    <>
+      <Reveal>
+        <Kicker>Your year as a constellation</Kicker>
+      </Reveal>
+      {c.stars.length > 0 ? (
+        <>
+          <Reveal>
+            <Headline className={sunny}>
+              {c.totalProjects} {c.totalProjects === 1 ? "project" : "projects"} lit up.
+            </Headline>
+          </Reveal>
+          <Reveal className="w-full">
+            <ConstellationChart stars={c.stars} />
+          </Reveal>
+          <Reveal>
+            <Blurb>Star size follows the issues you closed in each project{c.totalProjects > c.stars.length ? `. The ${c.stars.length} biggest are shown` : ""}.</Blurb>
+          </Reveal>
+        </>
+      ) : (
+        <Reveal>
+          <Missing>None of your closed issues belong to a project, so there are no stars to draw.</Missing>
+        </Reveal>
+      )}
+      {c.withoutProject > 0 && <Footnote>{plural(c.withoutProject, "closed issue")} had no project, so they aren&apos;t stars.</Footnote>}
+    </>
+  );
+}
+
+function Scope({ r }: { r: Recap }) {
+  const s = r.scope;
+  const note = "Projects and labels are the ones on issues now, grouped by the quarter each closed. A shift of 0% means the same mix, 100% an entirely different one. Issues with several labels count once per label.";
+  if (s.status !== "ok") {
+    return (
+      <>
+        <Reveal>
+          <Kicker>Scope Shapeshifter</Kicker>
+        </Reveal>
+        <Reveal>
+          <Headline className={sunny}>Too early to tell.</Headline>
+        </Reveal>
+        <Reveal>
+          <Missing>
+            Comparing quarters needs at least two with 5+ closed issues each. Yours: {s.quarterClosed.map((n, i) => `Q${i + 1} ${n}`).join(", ")}.
+          </Missing>
+        </Reveal>
+        <Footnote>{note}</Footnote>
+      </>
+    );
+  }
+  const top = Math.max(s.projectShiftPercent, s.labelShiftPercent);
+  return (
+    <>
+      <Reveal>
+        <Kicker>Scope Shapeshifter</Kicker>
+      </Reveal>
+      <Reveal>
+        <Headline className={sunny}>{top >= 50 ? "Full shapeshift." : top >= 25 ? "Shifting scope." : "Steady scope."}</Headline>
+      </Reveal>
+      <Reveal className="w-full">
+        <ScopeChart scope={s} />
+      </Reveal>
+      <Reveal>
+        <Blurb>
+          Between Q{s.fromQuarter} and Q{s.toQuarter}, your project mix shifted {s.projectShiftPercent}% and your label mix {s.labelShiftPercent}%.
+        </Blurb>
+      </Reveal>
+      <Footnote>{note}</Footnote>
+    </>
+  );
+}
+
+function Signature({ r }: { r: Recap }) {
+  const g = r.signature;
+  const coverage = `Based on ${g.eligible.toLocaleString("en-US")} of your ${r.totalClosed.toLocaleString("en-US")} closed issues: the ones with both a project and a label. Compared only with your own work, not with anyone else.`;
+  return (
+    <>
+      <Reveal>
+        <Kicker>Signature move</Kicker>
+      </Reveal>
+      {g.status === "ok" ? (
+        <>
+          <Reveal>
+            <Headline className={`break-words text-[10vw] sm:text-6xl ${sunny}`}>
+              {g.project} + {g.label}
+            </Headline>
+          </Reveal>
+          <Reveal className="flex w-full flex-col gap-4">
+            <Meter value={g.labelInProjectPercent / 100} label={`${g.labelInProjectPercent}% of your ${g.label} issues were in ${g.project}`} caption={`${g.labelInProjectPercent}% of ${g.label} issues are in ${g.project}`} />
+            <Meter value={g.projectSharePercent / 100} label={`${g.project} is ${g.projectSharePercent}% of your labeled project work`} caption={`${g.project} is ${g.projectSharePercent}% of all your labeled project work`} />
+          </Reveal>
+          <Reveal>
+            <Blurb>
+              {plural(g.pairCount, "issue")} with this pair, {g.lift.toFixed(1)}x as often as the project and label alone would suggest.
+            </Blurb>
+          </Reveal>
+        </>
+      ) : (
+        <>
+          <Reveal>
+            <Headline className={sunny}>No signature yet.</Headline>
+          </Reveal>
+          <Reveal>
+            <Missing>
+              A signature move needs a project and label pair on 3+ issues that clearly stands out in your own mix. None did
+              {g.eligible === 0 ? ", since none of your closed issues have both a project and a label" : ""}.
+            </Missing>
+          </Reveal>
+        </>
+      )}
+      <Footnote>{coverage}</Footnote>
+    </>
+  );
+}
+
+function PhotoFinish({ r }: { r: Recap }) {
+  const f = r.photoFinish;
+  return (
+    <>
+      <Reveal>
+        <Kicker>Photo finish</Kicker>
+      </Reveal>
+      {f ? (
+        <>
+          <Reveal className="flex items-center gap-5">
+            <ClockFace time={f.time} />
+            <Huge className={`text-[18vw] sm:text-[7rem] ${sunny}`}>{f.time}</Huge>
+          </Reveal>
+          <Reveal>
+            <p className="font-mono text-xs uppercase tracking-widest text-white/50">The last thing you closed</p>
+            <Headline className="mt-2 break-words text-[8vw] sm:text-5xl">{f.title ?? "An issue"}</Headline>
+          </Reveal>
+          <Reveal className="w-full">
+            <FinishLine year={r.year} date={f.date} label={`Last completion of ${r.year}: ${formatDay(f.date)} at ${f.time}`} />
+          </Reveal>
+          <Reveal>
+            <Blurb>
+              {f.daysBeforeYearEnd === null
+                ? `Your latest close so far was ${formatDay(f.date)}. ${r.year} isn't over, so this can still change.`
+                : f.daysBeforeYearEnd === 0
+                  ? `${formatDay(f.date)}: you closed one on the very last day of ${r.year}.`
+                  : `${formatDay(f.date)}, ${plural(f.daysBeforeYearEnd, "day")} before ${r.year} ended.`}
+            </Blurb>
+          </Reveal>
+        </>
+      ) : (
+        <Reveal>
+          <Missing>Nothing closed in {r.year} yet, so there&apos;s no finish to photograph.</Missing>
+        </Reveal>
+      )}
+      <Footnote>Latest completion in {r.year}, by time in your Linear timezone.</Footnote>
+    </>
+  );
+}
+
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4 border-b border-white/10 py-1.5 last:border-0">
@@ -424,6 +637,9 @@ function Summary({ r }: { r: Recap }) {
             <Row k="Active days" v={r.activeDays.toLocaleString("en-US")} />
             <Row k="Biggest project" v={r.biggestProject ? `${r.biggestProject.name} (${r.biggestProject.closedCount})` : none} />
             <Row k="Top collaborator" v={r.topCollaborator?.name ?? none} />
+            <Row k="Comeback" v={r.comeback.status === "ok" ? `${plural(r.comeback.burstCount, "issue")} in ${plural(r.comeback.burstDays, "day")} after ${plural(r.comeback.quietDays, "quiet day")}` : none} />
+            <Row k="Signature move" v={r.signature.status === "ok" ? `${r.signature.project} + ${r.signature.label}` : none} />
+            <Row k="Photo finish" v={r.photoFinish ? `${formatDay(r.photoFinish.date)}, ${r.photoFinish.time}` : none} />
             <Row k="Label of the year" v={r.labelOfYear?.name ?? none} />
             <Row k="One that got away" v={r.oldestOpenIssue ? `${r.oldestOpenIssue.identifier}, ${plural(r.oldestOpenIssue.ageDays, "day")} open` : none} />
           </dl>
@@ -447,11 +663,16 @@ const RENDERERS: Record<CardId, (props: { r: Recap }) => ReactNode> = {
   archetype: Archetype,
   peak: Peak,
   streak: Streak,
+  comeback: Comeback,
   project: Project,
+  constellation: Constellation,
+  scope: Scope,
   collaborator: Collaborator,
   integrations: Integrations,
   "got-away": GotAway,
   label: Label,
+  signature: Signature,
+  "photo-finish": PhotoFinish,
   summary: Summary,
 };
 

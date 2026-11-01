@@ -1,9 +1,11 @@
 import { classifyArchetype } from "./archetype.ts";
 import type { PersonRef, WrappedStats } from "./types.ts";
+import { computeComeback, computeConstellation, computePhotoFinish, computeScope, computeSignature, type ClosedEntry } from "./insights.ts";
 import { dayNumber, localParts, resolveTimeZone } from "./time.ts";
 
 export interface IssueNode {
   id: string;
+  title?: string | null;
   completedAt: string | null;
   project: { id: string; name: string } | null;
   labels: { nodes: { id: string; name: string }[] };
@@ -133,6 +135,18 @@ export function computeStats(input: StatsInput): WrappedStats {
   }
 
   const totalClosed = entries.length;
+  const nowLocal = localParts(input.now, timeZone);
+  const yearOver = nowLocal.year > year;
+  // Last local day that can hold data: Dec 31, or today while the year is in progress.
+  const lastDay = yearOver ? `${year}-12-31` : nowLocal.year === year ? nowLocal.date : `${year}-01-01`;
+  const closedEntries: ClosedEntry[] = entries.map(({ issue, at, local }) => ({
+    id: issue.id,
+    at,
+    title: issue.title ?? null,
+    project: issue.project,
+    labels: issue.labels.nodes,
+    local,
+  }));
   const weekend = byWeekday[0] + byWeekday[6];
 
   const completions = {
@@ -165,6 +179,11 @@ export function computeStats(input: StatsInput): WrappedStats {
       peakMonth: peak === null ? null : { month: peak + 1, count: byMonth[peak] },
     },
     longestStreak: longestStreak(byDay.keys()),
+    comeback: computeComeback(byDay, lastDay),
+    scope: computeScope(closedEntries),
+    constellation: computeConstellation(projects, issuesWithoutProject),
+    signatureMove: computeSignature(closedEntries),
+    photoFinish: computePhotoFinish(closedEntries, year, yearOver),
     biggestProject: topBy(projects, (p) => p.closedCount),
     topCollaborator: topBy(collaborators, (c) => c.sharedIssues),
     labelOfYear: topBy(labels, (l) => l.count),
@@ -202,6 +221,11 @@ export function computeStats(input: StatsInput): WrappedStats {
           input.integrations.status === "ok"
             ? "Integrations are the workspace-level services visible to the read scope; per-user connections and activity are not exposed."
             : "Integrations could not be read with the read-only scope.",
+      },
+      {
+        key: "labels-current",
+        message:
+          "Projects and labels are the ones currently on each issue. Linear's label and project history is not read, so evolution views group today's labels by the quarter an issue closed.",
       },
       {
         key: "history",

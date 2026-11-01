@@ -8,7 +8,7 @@ const button =
 /**
  * Shown on `/wrapped` when nothing was closed in the year. Keeps whatever real
  * metrics we do have (oldest open issue, integrations) and explains the zero
- * instead of walking through eleven empty cards. Nothing here is estimated.
+ * instead of walking through sixteen empty cards. Nothing here is estimated.
  */
 export function EmptyRecap({ recap }: { recap: Recap }) {
   const { oldestOpenIssue: oldest, integrations } = recap;

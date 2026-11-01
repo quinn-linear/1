@@ -1,7 +1,7 @@
 import { createHmac, hkdfSync, timingSafeEqual } from "node:crypto";
 import type { CardId, Recap } from "../recap.ts";
 import { CARD_IDS } from "../recap.ts";
-import type { ArchetypeId } from "../stats/types.ts";
+import { COMEBACK_RULES, SIGNATURE_RULES, type ArchetypeId } from "../stats/types.ts";
 
 /**
  * Stateless sharing: a share link IS a signed, bounded snapshot of ONE card's
@@ -18,6 +18,9 @@ export const MAX_TOKEN_LENGTH = 1024;
 export const MAX_NAME = 40;
 export const MAX_TITLE = 80;
 export const MAX_SERVICES = 8;
+/** Star names are shorter and capped in number so a constellation token stays small (see MAX_TOKEN_LENGTH). */
+export const MAX_STAR_NAME = 24;
+export const MAX_STARS = 5;
 const MAX_SERVICE = 24;
 const MAX_COUNT = 10_000_000;
 export const MIN_YEAR = 2000;
@@ -47,6 +50,16 @@ export type SnapshotBody =
   /** t issue title (no id/link), d days open. */
   | { c: "got-away"; o: { t: string; d: number } | null }
   | { c: "label"; l: Named | null }
+  /** m = quiet stretch (q days from a to z), return day r, k issues closed in the w days from r. Local dates, no names. */
+  | { c: "comeback"; m: { q: number; a: string; z: string; r: string; k: number; w: number } | null }
+  /** z = quarterly mix: f/t first and last compared quarter (1-4), p/l project and label shift in %, q closed per quarter. No names. */
+  | { c: "scope"; z: { f: number; t: number; p: number; l: number; q: number[] } | null }
+  /** s = up to 5 biggest projects, t = projects with closed issues, o = closed issues without a project. */
+  | { c: "constellation"; s: Named[]; t: number; o: number }
+  /** p project, l label, k issues with both, a = % of that label's issues in the project, b = % of all labelled project issues in it, x = lift in tenths. */
+  | { c: "signature"; m: { p: string; l: string; k: number; a: number; b: number; x: number } | null }
+  /** t issue title (no id/link) or null, d local date, h local HH:MM, g days before Dec 31 (null while the year is in progress). */
+  | { c: "photo-finish"; o: { t: string | null; d: string; h: string; g: number | null } | null }
   /** Counts and archetype only: no project, collaborator, label or issue names. */
   | { c: "summary"; n: number; d: number; a: ArchetypeId; m: number | null; s: number | null; u: boolean };
 
@@ -68,8 +81,8 @@ const isClean = (v: unknown, max: number): v is string => typeof v === "string" 
 
 // ---------- building (server-side, from the safe Recap) ----------
 
-const named = (name: string, count: number): Named | null => {
-  const n = cleanText(name, MAX_NAME);
+const named = (name: string, count: number, max = MAX_NAME): Named | null => {
+  const n = cleanText(name, max);
   return n ? { n, k: count } : null;
 };
 
@@ -101,6 +114,41 @@ export function buildSnapshot(card: CardId, r: Recap): Snapshot {
     }
     case "label":
       return { ...base, c: "label", l: r.labelOfYear && named(r.labelOfYear.name, r.labelOfYear.count) };
+    case "comeback": {
+      const m = r.comeback;
+      return {
+        ...base,
+        c: "comeback",
+        m: m.status === "ok" ? { q: m.quietDays, a: m.quietStart, z: m.quietEnd, r: m.returnDate, k: m.burstCount, w: m.burstDays } : null,
+      };
+    }
+    case "scope": {
+      const m = r.scope;
+      return {
+        ...base,
+        c: "scope",
+        z: m.status === "ok" ? { f: m.fromQuarter, t: m.toQuarter, p: m.projectShiftPercent, l: m.labelShiftPercent, q: [...m.quarterClosed] } : null,
+      };
+    }
+    case "constellation": {
+      const s = r.constellation.stars.flatMap((x) => named(x.name, x.closedCount, MAX_STAR_NAME) ?? []).slice(0, MAX_STARS);
+      return { ...base, c: "constellation", s, t: Math.max(r.constellation.totalProjects, s.length), o: r.constellation.withoutProject };
+    }
+    case "signature": {
+      const m = r.signature;
+      const p = m.status === "ok" ? cleanText(m.project, MAX_NAME) : "";
+      const l = m.status === "ok" ? cleanText(m.label, MAX_NAME) : "";
+      return {
+        ...base,
+        c: "signature",
+        m: m.status === "ok" && p && l ? { p, l, k: m.pairCount, a: m.labelInProjectPercent, b: m.projectSharePercent, x: Math.round(m.lift * 10) } : null,
+      };
+    }
+    case "photo-finish": {
+      const f = r.photoFinish;
+      const t = f?.title ? cleanText(f.title, MAX_TITLE) : "";
+      return { ...base, c: "photo-finish", o: f && { t: t || null, d: f.date, h: f.time, g: f.daysBeforeYearEnd } };
+    }
     case "summary":
       return {
         ...base,
@@ -135,9 +183,11 @@ const isDate = (v: unknown): v is string => {
 };
 const archetype = (v: unknown): v is ArchetypeId => typeof v === "string" && (ARCHETYPES as readonly string[]).includes(v);
 
-function parseNamed(v: unknown): Named | null | undefined {
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function parseNamed(v: unknown, max = MAX_NAME): Named | null | undefined {
   if (v === null) return null;
-  if (!isRec(v) || !exactKeys(v, ["n", "k"]) || !isClean(v.n, MAX_NAME) || !count(v.k)) return undefined;
+  if (!isRec(v) || !exactKeys(v, ["n", "k"]) || !isClean(v.n, max) || !count(v.k)) return undefined;
   return { n: v.n, k: v.k };
 }
 
@@ -191,6 +241,46 @@ export function parseSnapshot(input: unknown): Snapshot | null {
       if (o === null) return { ...base, c: "got-away", o: null };
       if (!isRec(o) || !exactKeys(o, ["t", "d"]) || !isClean(o.t, MAX_TITLE) || !int(o.d, 0, 36_500)) return null;
       return { ...base, c: "got-away", o: { t: o.t, d: o.d } };
+    }
+    case "comeback": {
+      if (!keys("m")) return null;
+      const m = input.m;
+      if (m === null) return { ...base, c: "comeback", m: null };
+      if (!isRec(m) || !exactKeys(m, ["q", "a", "z", "r", "k", "w"])) return null;
+      if (!int(m.q, COMEBACK_RULES.quietMinDays, 366) || !isDate(m.a) || !isDate(m.z) || !isDate(m.r) || !(m.a <= m.z && m.z < m.r)) return null;
+      if (!int(m.k, COMEBACK_RULES.burstMinIssues, MAX_COUNT) || !int(m.w, 1, COMEBACK_RULES.burstWindowDays)) return null;
+      return { ...base, c: "comeback", m: { q: m.q, a: m.a, z: m.z, r: m.r, k: m.k, w: m.w } };
+    }
+    case "scope": {
+      if (!keys("z")) return null;
+      const z = input.z;
+      if (z === null) return { ...base, c: "scope", z: null };
+      if (!isRec(z) || !exactKeys(z, ["f", "t", "p", "l", "q"]) || !int(z.f, 1, 4) || !int(z.t, 1, 4) || z.f >= z.t) return null;
+      if (!int(z.p, 0, 100) || !int(z.l, 0, 100) || !Array.isArray(z.q) || z.q.length !== 4 || !z.q.every(count)) return null;
+      return { ...base, c: "scope", z: { f: z.f, t: z.t, p: z.p, l: z.l, q: [...(z.q as number[])] } };
+    }
+    case "constellation": {
+      if (!keys("s", "t", "o") || !Array.isArray(input.s) || input.s.length > MAX_STARS || !count(input.t) || !count(input.o)) return null;
+      const stars = input.s.map((x) => parseNamed(x, MAX_STAR_NAME));
+      if (stars.some((x) => !x) || input.t < stars.length) return null;
+      return { ...base, c: "constellation", s: stars as Named[], t: input.t, o: input.o };
+    }
+    case "signature": {
+      if (!keys("m")) return null;
+      const m = input.m;
+      if (m === null) return { ...base, c: "signature", m: null };
+      if (!isRec(m) || !exactKeys(m, ["p", "l", "k", "a", "b", "x"]) || !isClean(m.p, MAX_NAME) || !isClean(m.l, MAX_NAME)) return null;
+      if (!int(m.k, SIGNATURE_RULES.minPairIssues, MAX_COUNT) || !int(m.a, 0, 100) || !int(m.b, 0, 100) || !int(m.x, 10, 1_000_000)) return null;
+      return { ...base, c: "signature", m: { p: m.p, l: m.l, k: m.k, a: m.a, b: m.b, x: m.x } };
+    }
+    case "photo-finish": {
+      if (!keys("o")) return null;
+      const o = input.o;
+      if (o === null) return { ...base, c: "photo-finish", o: null };
+      if (!isRec(o) || !exactKeys(o, ["t", "d", "h", "g"]) || !isDate(o.d) || typeof o.h !== "string" || !TIME.test(o.h)) return null;
+      if (o.t !== null && !isClean(o.t, MAX_TITLE)) return null;
+      if (o.g !== null && !int(o.g, 0, 365)) return null;
+      return { ...base, c: "photo-finish", o: { t: o.t as string | null, d: o.d, h: o.h, g: o.g as number | null } };
     }
     case "summary": {
       if (!keys("n", "d", "a", "m", "s", "u")) return null;
