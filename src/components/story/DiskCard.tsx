@@ -1,11 +1,11 @@
 "use client";
 
 import { motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
-import { useEffect, useMemo, useState, type PointerEvent } from "react";
+import { useEffect, useState, type PointerEvent } from "react";
 import { monthName, plural, type Recap } from "@/lib/recap";
-import { daysInYear, sigil } from "@/lib/share/art";
-import { CARD_ACCENTS } from "@/lib/share/theme";
-import { Ring } from "./charts";
+import { daysInYear } from "@/lib/share/art";
+import { ARCHETYPE_ART, ART_SIZE } from "@/lib/share/archetypeArt";
+
 
 /**
  * The end card: a collectible 5.25" floppy disk with a system report on its
@@ -20,7 +20,6 @@ import { Ring } from "./charts";
  */
 export function DiskCard({ recap }: { recap: Recap }) {
   const reduce = useReducedMotion();
-  const [a, b] = CARD_ACCENTS.summary;
   const [engaged, setEngaged] = useState(false);
   const [focused, setFocused] = useState(false);
 
@@ -59,7 +58,7 @@ export function DiskCard({ recap }: { recap: Recap }) {
     py.set(Math.min(Math.max((e.clientY - box.top) / box.height, 0), 1));
   };
 
-  const art = useMemo(() => sigil(recap.archetype.id, 200, [a, b], "disk-sigil"), [recap.archetype.id, a, b]);
+  const art = ARCHETYPE_ART[recap.archetype.id];
 
   const streak = recap.longestStreak;
   const streakSub = streak ? (streak.days === 1 ? "day" : "days") : recap.peakMonth ? `Peak ${monthName(recap.peakMonth.month, true)}` : "";
@@ -105,7 +104,7 @@ export function DiskCard({ recap }: { recap: Recap }) {
           container units (cqw), so the whole label scales with the disk.
         */}
         <div
-          className="absolute inset-x-[5%] bottom-[3%] top-[44%] grid grid-rows-[auto_minmax(0,1fr)_auto] gap-[2.6cqw] overflow-hidden border border-black/40 bg-[#e8e0c4] px-[3cqw] pb-[2.4cqw] pt-0 text-ink"
+          className="absolute inset-x-[5%] bottom-[3%] top-[42%] grid grid-rows-[auto_minmax(0,1fr)_auto] gap-[2.6cqw] overflow-hidden border border-black/40 bg-[#e8e0c4] px-[3cqw] pb-[2.4cqw] pt-0 text-ink"
           style={{ transform: "translateZ(14px)" }}
         >
           <header className="-mx-[3cqw] mb-0 flex items-baseline justify-between gap-[2cqw] border-t-[1.4cqw] border-amber px-[3cqw] pt-[1.2cqw] text-[3.6cqw] uppercase leading-none tracking-[0.1em]">
@@ -113,13 +112,11 @@ export function DiskCard({ recap }: { recap: Recap }) {
             <span className="shrink-0 tabular-nums">{recap.year}</span>
           </header>
 
-          <div className="grid min-h-0 grid-cols-[17cqw_minmax(0,1fr)] items-center gap-[2.6cqw]">
-            <div className="crt relative aspect-square w-full overflow-hidden border-2 border-ink">
-              <Ring value={recap.activeDays / daysInYear(recap.year)} label={`${recap.activeDays} active days of ${daysInYear(recap.year)}`}>
-                <div className="h-[62%] w-[62%] [&>svg]:h-full [&>svg]:w-full" aria-hidden>
-                  {art}
-                </div>
-              </Ring>
+          <div className="grid min-h-0 grid-cols-[26cqw_minmax(0,1fr)] items-center gap-[2.6cqw]">
+            {/* The archetype's engraving, whole and uncropped, on its parchment. */}
+            <div className="relative aspect-square w-full overflow-hidden border-2 border-ink bg-[#e8e0c4]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={art.web} alt={art.alt} width={ART_SIZE.web} height={ART_SIZE.web} decoding="async" draggable={false} className="block h-full w-full object-contain" />
             </div>
             <div className="min-h-0 min-w-0">
               <p className="text-[2.8cqw] uppercase leading-none tracking-[0.16em] text-ink/70">Archetype</p>

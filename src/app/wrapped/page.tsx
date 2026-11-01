@@ -45,7 +45,7 @@ async function WrappedContent({ token, showCards }: { token: string; showCards: 
   if (stats) {
     const recap = toRecap(stats);
     if (recapDensity(recap) === "empty" && !showCards) return <EmptyRecap recap={recap} />;
-    return <Story recap={recap} />;
+    return <Story recap={recap} gate />;
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useReducedMotion } from "framer-motion";
 import { createContext, useCallback, useContext, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { SoundOff, SoundOn } from "@/components/icons";
 import { MASTER_GAIN, MAX_SOUND_SECONDS, SOUND_STORAGE_KEY, allowSound, initialSoundEnabled, planSound, type SoundEvent, type SoundName } from "@/lib/retro/sound";
 
 interface SoundApi {
@@ -124,8 +125,15 @@ export function SoundProvider({ children }: { children: ReactNode }) {
 }
 
 /** Mute switch, always visible wherever sound can play. `screen` styles it as an on-screen button, `key` as a keycap on the hardware. */
-export function SoundToggle({ className = "", variant = "key" }: { className?: string; variant?: "key" | "screen" | "quiet" }) {
+export function SoundToggle({ className = "", variant = "key" }: { className?: string; variant?: "key" | "screen" | "quiet" | "dock" }) {
   const { enabled, toggle } = useSound();
+  if (variant === "dock") {
+    return (
+      <button type="button" onClick={toggle} aria-pressed={enabled} aria-label="Sound effects" data-tip={enabled ? "Sound on" : "Sound off"} className={`dock-btn ${className}`}>
+        {enabled ? <SoundOn /> : <SoundOff />}
+      </button>
+    );
+  }
   const off = variant === "key" ? "bg-ink/30" : "bg-ph/40";
   const style = variant === "key" ? "keycap" : variant === "quiet" ? "quiet-toggle" : "term-btn";
   return (

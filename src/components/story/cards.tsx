@@ -3,11 +3,11 @@
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { CARD_IDS, formatDay, monthName, plural, prettyService, type CardId, type Recap } from "@/lib/recap";
-import { daysInYear, sigil } from "@/lib/share/art";
-import { CARD_ACCENTS } from "@/lib/share/theme";
+import { daysInYear } from "@/lib/share/art";
 import { SPARSE_NOTE, recapDensity } from "@/lib/sparse";
 import { ClockFace, ComebackTimeline, ConstellationChart, FinishLine, ScopeChart } from "./recapCharts";
 import { AgeTrack, DayChain, Meter, MonthChart, Ring, YearSpark } from "./charts";
+import { ArchetypeArt } from "./ArchetypeArt";
 import { DiskCard } from "./DiskCard";
 import { Avatar, Blurb, CountUp, Footnote, Headline, Huge, Kicker, Reveal, sunny } from "./primitives";
 
@@ -103,9 +103,7 @@ function Archetype({ r }: { r: Recap }) {
         <Kicker>Your archetype</Kicker>
       </Reveal>
       <Reveal className="mx-auto">
-        <motion.div aria-hidden className="h-44 w-44 sm:h-60 sm:w-60" animate={{ rotate: 360 }} transition={{ duration: 90, ease: "linear", repeat: Infinity }}>
-          <div className="h-full w-full [&>svg]:h-full [&>svg]:w-full">{sigil(r.archetype.id, 240, CARD_ACCENTS.archetype, "arc-sigil")}</div>
-        </motion.div>
+        <ArchetypeArt id={r.archetype.id} priority className="w-[min(72vw,20rem,34dvh)]" />
       </Reveal>
       <Reveal>
         <Headline className={`text-[min(15vw,11dvh)] sm:text-8xl ${sunny}`}>{r.archetype.name}</Headline>

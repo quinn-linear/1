@@ -43,13 +43,13 @@ export type ImageFormat = keyof typeof IMAGE_FORMATS;
  * changes when only the artwork does (snapshots are identical before and after a
  * redesign), so without it old PNGs keep being served.
  */
-export const IMAGE_VERSION = "pet2";
+export const IMAGE_VERSION = "pet3";
 
 /**
  * Versions that were ever minted into links. They stay valid (links people
  * already shared keep working) but are answered with the current design.
  */
-export const LEGACY_IMAGE_VERSIONS: readonly string[] = ["pet1", "holo2"];
+export const LEGACY_IMAGE_VERSIONS: readonly string[] = ["pet2", "pet1", "holo2"];
 
 /** `r` absent (links from before versioning), current, or a known legacy version. */
 export const isAcceptedVersion = (version: string | null) => version === null || version === IMAGE_VERSION || LEGACY_IMAGE_VERSIONS.includes(version);

@@ -578,3 +578,192 @@ input.term-input {
   break-inside: avoid;
   margin-bottom: min(1.5rem, 2.2dvh);
 }
+
+/* ---------- Story dock: one compact pill, quiet until used ---------- */
+
+.dock-pill {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--ph) 22%, transparent);
+  border-radius: 999px;
+  background: rgb(10 9 18 / 0.66);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(184 168 255 / 0.06);
+}
+
+.dock-btn {
+  position: relative;
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--ph) 85%, transparent);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, transform 0.1s;
+}
+
+.dock-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ph) 12%, transparent);
+  color: var(--ph);
+}
+
+.dock-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.dock-btn[aria-pressed="true"] {
+  color: var(--a1, var(--ph));
+}
+
+.dock-btn:focus-visible {
+  outline: 2px solid var(--color-lav);
+  outline-offset: 1px;
+  background: color-mix(in srgb, var(--ph) 12%, transparent);
+}
+
+.dock-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.dock-btn-close {
+  border: 1px solid color-mix(in srgb, var(--ph) 28%, transparent);
+  background: rgb(10 9 18 / 0.7);
+}
+
+.dock-sep {
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 4px;
+  background: color-mix(in srgb, var(--ph) 20%, transparent);
+}
+
+.dock-count {
+  min-width: 3.4rem;
+  text-align: center;
+  color: color-mix(in srgb, var(--ph) 75%, transparent);
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+/* Tooltips: shown on hover and keyboard focus (not on touch, where they would stick). */
+.dock-btn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  padding: 0.1rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--ph) 30%, transparent);
+  border-radius: 6px;
+  background: #0a0912;
+  color: var(--ph);
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 0.12s;
+}
+
+.dock-btn[data-tip][data-tip-below]::after {
+  top: calc(100% + 8px);
+  bottom: auto;
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.dock-btn:hover::after,
+.dock-btn:focus-visible::after {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .dock-btn[data-tip]::after {
+    display: none;
+  }
+}
+
+/* Short landscape screens: a slightly smaller dock keeps the card as tall as possible. */
+@media (max-height: 520px) {
+  .dock-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+  .dock-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+  .dock-count {
+    font-size: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-btn, .dock-btn[data-tip]::after { transition: none; }
+  .dock-btn:active:not(:disabled) { transform: none; }
+}
+
+.dock-note {
+  position: absolute;
+  bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  left: 50%;
+  z-index: 30;
+  max-width: min(92vw, 28rem);
+  padding: 0.25rem 0.75rem;
+  transform: translateX(-50%);
+  border: 1px solid color-mix(in srgb, var(--ph) 30%, transparent);
+  border-radius: 8px;
+  background: rgb(10 9 18 / 0.92);
+  color: var(--ph);
+  font-size: 1.05rem;
+  text-align: center;
+}
+
+/* "Enter recap": one clear action; the escape hatch is a quiet link. */
+.enter-btn {
+  min-height: 3rem;
+  padding: 0.3rem 1.4rem;
+  border: 1px solid var(--ph);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ph) 10%, transparent);
+  color: var(--ph);
+  font-size: 1.35rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.enter-btn:hover {
+  background: var(--ph);
+  color: #0a0912;
+}
+
+.enter-link {
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: 0;
+  background: none;
+  color: color-mix(in srgb, var(--ph) 70%, transparent);
+  font-size: 1.1rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.enter-btn:focus-visible,
+.enter-link:focus-visible {
+  outline: 2px solid var(--color-lav);
+  outline-offset: 3px;
+  border-radius: 999px;
+}

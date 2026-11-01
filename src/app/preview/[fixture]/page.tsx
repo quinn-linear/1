@@ -11,11 +11,11 @@ export const dynamic = "force-dynamic";
  * server is started with `PREVIEW_FIXTURES=1`; otherwise it is a plain 404, so
  * production never exposes it. No account, token or Linear data is involved.
  */
-export default async function PreviewPage({ params, searchParams }: { params: Promise<{ fixture: string }>; searchParams: Promise<{ card?: string }> }) {
+export default async function PreviewPage({ params, searchParams }: { params: Promise<{ fixture: string }>; searchParams: Promise<{ card?: string; gate?: string }> }) {
   if (process.env.PREVIEW_FIXTURES !== "1") notFound();
   const { fixture } = await params;
   if (!FIXTURE_NAMES.includes(fixture as FixtureName)) notFound();
-  const { card } = await searchParams;
+  const { card, gate } = await searchParams;
   const start = Math.max(0, CARD_IDS.findIndex((id) => id === card));
-  return <Story recap={fixtureRecap(fixture as FixtureName)} initialIndex={start} />;
+  return <Story recap={fixtureRecap(fixture as FixtureName)} initialIndex={start} gate={gate === "1"} />;
 }

@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
+import { loadShareArt } from "@/lib/share/artFile";
 import { renderCard } from "@/lib/share/image";
 import { decodeToken } from "@/lib/share/snapshot";
 import { shareSecret } from "@/lib/share/server";
@@ -15,7 +16,7 @@ const fail = (status: number, message: string) =>
  * is bounded: the token is length-checked and signature-verified before it's
  * decoded, `f` must be `story` or `og`, and no remote URL is ever fetched.
  * Output depends only on the token and design version, so it is safe to cache publicly.
- * Links minted under an older design (`r=pet1`, `r=holo2`, or no `r` at all) still work and are drawn in the current design.
+ * Links minted under an older design (`r=pet2`, `r=pet1`, `r=holo2`, or no `r` at all) still work and are drawn in the current design.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -34,5 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // Immutable only when the URL pins the current design; legacy URLs must revalidate so a redesign can't stay stuck in caches.
   const headers: Record<string, string> = { "Cache-Control": imageCacheControl(version), "X-Content-Type-Options": "nosniff" };
   if (download) headers["Content-Disposition"] = `attachment; filename="linear-wrapped-${snapshot.y}-${snapshot.c}-${format}.png"`;
-  return new ImageResponse(renderCard(snapshot, format), { ...IMAGE_FORMATS[format], headers });
+  // Archetype and summary cards carry the archetype's engraving: a local file chosen by the verified snapshot's archetype id.
+  const art = snapshot.c === "archetype" || snapshot.c === "summary" ? await loadShareArt(snapshot.a) : null;
+  return new ImageResponse(renderCard(snapshot, format, art), { ...IMAGE_FORMATS[format], headers });
 }
