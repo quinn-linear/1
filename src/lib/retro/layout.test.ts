@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { centeredOffset, clampOffset, containsPoint, isIntentionalDrop, startIntent, updateIntent, type Box } from "./drag.ts";
 import { MIN_SCALE, chooseScale } from "./fit.ts";
 import { CASSETTE_REST, PET_ART, PET_COMPUTER, PET_DROP, PET_FOCUS, PET_NOTEPAD, PET_SCREEN } from "./art.ts";
-import { coverPlacement, mapRect, restingBox } from "./cover.ts";
+import { coverPlacement, mapRect, restingBox, scenePlacement, sceneRestingBox } from "./cover.ts";
 
 const CASSETTE_REST_RATIO = (CASSETTE_REST.w * PET_ART.width) / (CASSETTE_REST.h * PET_ART.height);
 
@@ -135,4 +135,34 @@ test("a drop needs a meaningful drag that enters the target; releasing where the
   assert.equal(isIntentionalDrop(i, false, W), false, "released outside");
   // A wider tape needs a longer pull.
   assert.equal(isIntentionalDrop({ ...i, reach: 120 }, true, 300), false);
+});
+
+test("the whole computer is on screen, unstretched, on every phone and desktop size; desktop keeps the full-bleed cover", () => {
+  for (const [w, h] of [[320, 568], [375, 667], [390, 844], [430, 932], [844, 390], [667, 375], [932, 430], [1440, 900], [1920, 1080]] as const) {
+    const v = view(w, h);
+    const p = scenePlacement(v, PET_ART, PET_FOCUS, PET_SCREEN, PET_COMPUTER);
+    const c = mapRect(p, PET_COMPUTER);
+    assert.ok(c.left >= 0 && c.top >= 0 && c.left + c.width <= w + 1e-6 && c.top + c.height <= h + 1e-6, `${w}x${h}: computer whole`);
+    assert.ok(Math.abs(p.width / p.height - PET_ART.width / PET_ART.height) < 1e-9, `${w}x${h}: aspect ratio`);
+    const d = mapRect(p, PET_DROP);
+    assert.ok(d.left + d.width > c.left && d.width >= c.width, "drop target covers it");
+    if (w >= 1440) assert.deepEqual(p, coverPlacement(v, PET_ART, PET_FOCUS, PET_SCREEN), `${w}x${h}: full bleed`);
+    // Wherever the picture does not reach a viewport edge it is flagged to fade out, and it never leaves a gap otherwise.
+    assert.equal(!!p.gapX, p.left > 0.5 || p.left + p.width < w - 0.5);
+    assert.equal(!!p.gapY, p.top > 0.5 || p.top + p.height < h - 0.5);
+  }
+});
+
+test("an upright phone shows the whole case with a big, reachable tape clear of the drop target", () => {
+  for (const [w, h] of [[320, 568], [375, 667], [390, 844], [430, 932]] as const) {
+    const v = view(w, h);
+    const p = scenePlacement(v, PET_ART, PET_FOCUS, PET_SCREEN, PET_COMPUTER);
+    const t = sceneRestingBox(p, CASSETTE_REST, PET_DROP, PET_NOTEPAD, v);
+    const drop = mapRect(p, PET_DROP);
+    assert.ok(t.left >= 0 && t.left + t.width <= w && t.top >= 0 && t.top + t.height <= h, `${w}x${h}: tape on screen`);
+    assert.ok(t.width >= 100 && t.height >= 44, `${w}x${h}: tape easy to hit (${t.width}x${t.height})`);
+    assert.ok(t.top >= drop.top + drop.height || t.top + t.height <= drop.top, `${w}x${h}: tape clear of the drop target`);
+    const dist = Math.abs(t.top + t.height / 2 - (drop.top + drop.height / 2));
+    assert.ok(dist >= Math.max(56, t.width * 0.6), `${w}x${h}: a meaningful drag (${dist | 0}px)`);
+  }
 });

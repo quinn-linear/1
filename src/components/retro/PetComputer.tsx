@@ -26,7 +26,7 @@ const GLOW: Record<PetState, string> = {
 export function PetComputer({ state, viewRef, placement, children }: { state: PetState; viewRef?: Ref<HTMLDivElement>; placement: Placement | null; children: ReactNode }) {
   const style = { ...vars("s", PET_SCREEN), ...vars("b", PET_BEAM), "--art-ar": PET_ART.width / PET_ART.height, ...(placement && { left: placement.left, top: placement.top, width: placement.width, height: placement.height }) } as CSSProperties;
   return (
-    <div className="pet-view absolute" style={style}>
+    <div className="pet-view absolute" style={style} data-gap-x={placement?.gapX ? "" : undefined} data-gap-y={placement?.gapY ? "" : undefined}>
       {/* Supplied artwork (public/retro/pet.webp); decorative. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={PET_ART.src} alt={PET_ART.alt} width={PET_ART.width} height={PET_ART.height} fetchPriority="high" draggable={false} className="pet-img pointer-events-none absolute max-w-none select-none" />

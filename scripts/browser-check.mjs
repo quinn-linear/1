@@ -29,6 +29,10 @@ const VIEWPORTS = {
   laptop: [1280, 720, 1],
   phone: [390, 844, 2],
   "phone-small": [360, 640, 2],
+  "phone-320": [320, 568, 2],
+  "phone-375": [375, 667, 2],
+  "phone-430": [430, 932, 2],
+  "phone-landscape-wide": [932, 430, 2],
   "phone-landscape": [844, 390, 2],
   "phone-landscape-short": [667, 375, 2],
   zoom200: [720, 450, 1], // 1440x900 at 200% browser zoom
@@ -132,6 +136,8 @@ async function landing() {
       const pv = document.querySelector(".pet-view").getBoundingClientRect(), img = document.querySelector(".pet-img").getBoundingClientRect();
       const c = document.querySelector("[data-cassette]").getBoundingClientRect(), crt = document.querySelector(".pet-screen-zone.crt").getBoundingClientRect();
       const logo = document.querySelector(".boot-logo").getBoundingClientRect(), cur = document.querySelector(".cursor-block").getBoundingClientRect();
+      const drop = document.querySelector("[data-pet]").getBoundingClientRect();
+      const comp = { l: pv.left + pv.width * 365 / 1672, t: pv.top + pv.height * 118 / 941, r: pv.left + pv.width * 1265 / 1672, b: pv.top + pv.height * 845 / 941 };
       const pad = { l: pv.left + pv.width * 1280 / 1672, t: pv.top + pv.height * 655 / 941, w: pv.width * 320 / 1672, h: pv.height * 220 / 941 };
       // Text anybody can see: not the 1px screen-reader-only copy, not hidden skip links.
       const seen = [];
@@ -145,7 +151,9 @@ async function landing() {
       }
       return {
         pageScroll: de.scrollHeight - innerHeight, mainScroll: (main.scrollTop = 50, main.scrollLeft = 50, main.scrollTop + main.scrollLeft), bodyX: de.scrollWidth - innerWidth,
-        covers: pv.left <= 1 && pv.top <= 1 && pv.right >= innerWidth - 1 && pv.bottom >= innerHeight - 1, ratio: +(img.width / img.height).toFixed(3),
+        covers: pv.left <= 1 && pv.top <= 1 && pv.right >= innerWidth - 1 && pv.bottom >= innerHeight - 1,
+        computerWhole: comp.l >= 0 && comp.t >= 0 && comp.r <= innerWidth && comp.b <= innerHeight, computer: [comp.l, comp.t, comp.r, comp.b].map(Math.round), dropClear: c.bottom <= drop.top + 1 || c.top >= drop.bottom - 1 || c.right <= drop.left + 1 || c.left >= drop.right - 1,
+        padVisible: pad.l >= 0 && pad.t >= 0 && pad.l + pad.w <= innerWidth && pad.t + pad.h <= innerHeight, tapeBig: c.width >= 96 && c.height >= 44, ratio: +(img.width / img.height).toFixed(3),
         cassetteInView: inView(c), crtInView: inView(crt), contentInView: inView(logo) && inView(cur), seen,
         logoDx: Math.round(logo.left + logo.width / 2 - (crt.left + crt.width / 2)), logoDy: Math.round(logo.top + logo.height / 2 - (crt.top + crt.height / 2)),
         cursorBR: cur.left > crt.left + crt.width * 0.7 && cur.top > crt.top + crt.height * 0.7 && cur.right <= crt.right && cur.bottom <= crt.bottom,
@@ -156,14 +164,15 @@ async function landing() {
     })()`);
     const portrait = innerWidthOf(name) < innerHeightOf(name);
     check(r.pageScroll <= 0 && r.mainScroll <= 0 && r.bodyX <= 0, `landing ${name}: no scrolling, and the cropped picture can't be scrolled to (page ${r.pageScroll}, main ${r.mainScroll}, x ${r.bodyX})`);
-    check(r.covers && Math.abs(r.ratio - 1672 / 941) < 0.01, `landing ${name}: the picture fills the whole viewport at its own aspect ratio (${r.ratio})`);
-    // Upright phones are narrower than the glass itself at cover scale: its rim is cropped, the mark and cursor are not.
-    check((portrait ? r.contentInView : r.crtInView) && r.cassetteInView, `landing ${name}: the ${portrait ? "mark, cursor" : "screen"} and the cassette are fully on screen (tape ${r.tape})`);
+    check(Math.abs(r.ratio - 1672 / 941) < 0.01, `landing ${name}: the picture keeps its own aspect ratio (${r.ratio})`);
+    check(r.computerWhole, `landing ${name}: the entire computer, both edges, is on screen (${r.computer})`);
+    check(r.tapeBig && (r.onNotepad || r.dropClear), `landing ${name}: the tape is big enough to tap and rests on the notepad or clear of the computer`);
+    check(r.crtInView && r.cassetteInView, `landing ${name}: the ${portrait ? "mark, cursor" : "screen"} and the cassette are fully on screen (tape ${r.tape})`);
     check(r.seen.length === 0 && r.terminalText === "", `landing ${name}: no visible text at all: no title, tips, or boot lines (${JSON.stringify(r.seen)})`);
     check(Math.abs(r.logoDx) <= 2 && Math.abs(r.logoDy) <= 2 && r.cursorBR, `landing ${name}: the mark is centred on the glass (${r.logoDx},${r.logoDy}) and the cursor sits at its bottom right`);
     check(r.buttons === 0 && r.skipLink, `landing ${name}: no other buttons, and the sign-in fallback link exists`);
-    if (!portrait) check(r.onNotepad, `landing ${name}: the cassette rests on the notepad`);
-    else console.log(`note: landing ${name}: upright phone, the notepad is cropped out; the tape is pulled inside the screen at ${r.tape}`);
+    if (r.padVisible) check(r.onNotepad, `landing ${name}: the cassette rests on the notepad`);
+    else console.log(`note: landing ${name}: the notepad is not fully on screen; the tape rests clear of the computer at ${r.tape}`);
     await shot(`landing-${name}`);
   }
 }
@@ -295,7 +304,7 @@ const centers = `(() => {
 })()`;
 
 async function drag() {
-  for (const name of ["desktop", "phone", "phone-landscape"]) {
+  for (const name of ["desktop", "phone", "phone-320", "phone-375", "phone-430", "phone-landscape", "phone-landscape-wide"]) {
     await viewport(name);
     await go("/");
     const pos = await evaluate(centers);
@@ -340,7 +349,7 @@ async function drag() {
     check(q.get("scope") === "read" && !!q.get("state") && q.get("response_type") === "code", `authorize URL is read-only with state (${lin.slice(0, 90)}...)`);
   } else console.log("note: no linear.app authorize request seen (start the server with fake LINEAR_CLIENT_ID/SECRET to check it)");
 
-  for (const name of ["desktop", "phone"]) {
+  for (const name of ["desktop", "phone", "phone-320", "phone-430"]) {
     await viewport(name);
     await go("/");
     const pos = await evaluate(centers);

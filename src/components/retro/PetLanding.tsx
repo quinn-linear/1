@@ -5,8 +5,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, u
 import { createPortal } from "react-dom";
 import { ACCESS_GRANTED, CONNECTING, grantHold, grantReducer } from "@/lib/retro/cassette";
 import { TAP_SLOP_PX, centeredOffset, clampOffset, containsPoint, isIntentionalDrop, startIntent, updateIntent, type Box, type DragIntent } from "@/lib/retro/drag";
-import { CASSETTE_REST, PET_ART, PET_FOCUS, PET_SCREEN } from "@/lib/retro/art";
-import { coverPlacement, restingBox } from "@/lib/retro/cover";
+import { CASSETTE_REST, PET_ART, PET_COMPUTER, PET_DROP, PET_FOCUS, PET_NOTEPAD, PET_SCREEN } from "@/lib/retro/art";
+import { sceneRestingBox, scenePlacement } from "@/lib/retro/cover";
 import { BOOT_LABEL, LOGO_RADIUS, LOGO_VIEWBOX, logoRows, logoSchedule } from "@/lib/retro/logo";
 import { Cassette } from "./Cassette";
 import { PetComputer, type PetState } from "./PetComputer";
@@ -20,7 +20,8 @@ const toBox = (r: DOMRect): Box => ({ left: r.left, top: r.top, width: r.width, 
 const LOGO_ROWS = logoRows();
 
 /**
- * The landing screen: the PET photograph fills the whole viewport, its screen
+ * The landing screen: the PET photograph fills the whole viewport (where that shows the whole computer;
+ * on an upright phone it is width-fitted instead, edges faded into the dark backdrop), its screen
  * shows only the Linear mark and a blinking cursor, and a cassette tape lies on
  * the notepad at the lower right. Drag the cassette onto the
  * computer (the screen glows while a drop would be accepted) and let go: the screen says
@@ -69,8 +70,8 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
     window.addEventListener("resize", read);
     return () => window.removeEventListener("resize", read);
   }, []);
-  const placement = useMemo(() => (view ? coverPlacement(view, PET_ART, PET_FOCUS, PET_SCREEN) : null), [view]);
-  const rest = useMemo<Box | null>(() => (view && placement ? restingBox(placement, CASSETTE_REST, view) : null), [view, placement]);
+  const placement = useMemo(() => (view ? scenePlacement(view, PET_ART, PET_FOCUS, PET_SCREEN, PET_COMPUTER) : null), [view]);
+  const rest = useMemo<Box | null>(() => (view && placement ? sceneRestingBox(placement, CASSETTE_REST, PET_DROP, PET_NOTEPAD, view) : null), [view, placement]);
 
   // The mark's scanline sweep is skipped by any key press or touch. (Reduced motion skips it in CSS.)
   useEffect(() => {

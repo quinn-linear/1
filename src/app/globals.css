@@ -283,6 +283,25 @@ input.term-input {
   top: 0;
 }
 
+/* Where the picture is smaller than the viewport (a phone held upright), its edges melt into the dark backdrop. */
+.pet-view[data-gap-x] .pet-img,
+.pet-view[data-gap-y] .pet-img {
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+.pet-view[data-gap-x] .pet-img {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+}
+.pet-view[data-gap-y] .pet-img {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 9%, #000 91%, transparent);
+}
+.pet-view[data-gap-x][data-gap-y] .pet-img {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent), linear-gradient(to bottom, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent), linear-gradient(to bottom, transparent, #000 9%, #000 91%, transparent);
+}
+
 .pet-screen-zone {
   left: calc(var(--sx) * 100%);
   top: calc(var(--sy) * 100%);

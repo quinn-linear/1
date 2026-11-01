@@ -17,6 +17,9 @@ export interface Placement {
   top: number;
   width: number;
   height: number;
+  /** True on an axis where the picture is smaller than the viewport, so its edges show and are faded into the dark backdrop. */
+  gapX?: boolean;
+  gapY?: boolean;
 }
 
 /** Offset of the picture along one axis: centre `focus` (picture px) if all of it fits, else centre `anchor`, always covering the viewport. */
@@ -44,6 +47,39 @@ export function coverPlacement(view: { width: number; height: number }, art: { w
   };
 }
 
+/**
+ * The landing's framing: full-bleed cover where that already shows the whole `keep` box (the
+ * computer) with `margin` px to spare; otherwise the largest uniform scale that does show it
+ * whole, centred on it. Then the picture is cropped on an axis where it is still larger than the
+ * viewport, and on an axis where it is smaller (an upright phone: it is width-fitted) its edges
+ * are left to fade into the backdrop. Never stretched.
+ */
+export function scenePlacement(view: { width: number; height: number }, art: { width: number; height: number }, focus: Rect, anchor: Rect, keep: Rect, margin = 10): Placement {
+  const cover = coverPlacement(view, art, focus, anchor);
+  const box = mapRect(cover, keep);
+  const shown = box.left >= margin - 1e-6 && box.top >= margin - 1e-6 && box.left + box.width <= view.width - margin + 1e-6 && box.top + box.height <= view.height - margin + 1e-6;
+  if (shown) return cover;
+  const kw = keep.w * art.width;
+  const kh = keep.h * art.height;
+  const scale = Math.min(cover.scale, (view.width - 2 * margin) / kw, (view.height - 2 * margin) / kh);
+  const width = art.width * scale;
+  const height = art.height * scale;
+  const place = (v: number, size: number, from: number, len: number) => {
+    if (size <= v) return (v - size) / 2;
+    const centre = from + len / 2; // picture px
+    return Math.min(0, Math.max(v - size, v / 2 - centre * scale));
+  };
+  return {
+    scale,
+    width,
+    height,
+    left: place(view.width, width, keep.x * art.width, kw),
+    top: place(view.height, height, keep.y * art.height, kh),
+    gapX: width < view.width - 0.5,
+    gapY: height < view.height - 0.5,
+  };
+}
+
 /** A box given as fractions of the picture, in viewport px. */
 export function mapRect(p: Placement, r: Rect): Box {
   return { left: p.left + r.x * p.width, top: p.top + r.y * p.height, width: r.w * p.width, height: r.h * p.height };
@@ -62,4 +98,25 @@ export function restingBox(p: Placement, rest: Rect, view: { width: number; heig
   const left = Math.min(Math.max(natural.left + (natural.width - width) / 2, margin), view.width - margin - width);
   const top = Math.min(Math.max(natural.top + (natural.height - height) / 2, margin), view.height - margin - height);
   return { left, top, width, height };
+}
+
+/**
+ * Where the tape rests when the picture is framed whole (`scenePlacement`): on the notepad if
+ * that is entirely on screen, else centred in the free band below the computer's drop target (or
+ * above it, if that is roomier), never over it, and no smaller than `minWidth` so it is easy to hit.
+ */
+export function sceneRestingBox(p: Placement, rest: Rect, drop: Rect, notepad: Rect, view: { width: number; height: number }, { margin = 12, minWidth = 120, maxShare = 0.5 } = {}): Box {
+  const pad = mapRect(p, notepad);
+  if (pad.left >= 0 && pad.top >= 0 && pad.left + pad.width <= view.width && pad.top + pad.height <= view.height) return restingBox(p, rest, view, { margin, minWidth: 96, maxShare: 0.6 });
+  const natural = mapRect(p, rest);
+  const ratio = natural.height / natural.width;
+  const target = mapRect(p, drop);
+  const below = view.height - (target.top + target.height);
+  const above = target.top;
+  const width = Math.min(Math.max(natural.width, minWidth), view.width * maxShare);
+  const height = width * ratio;
+  const room = Math.max(below, above);
+  if (room < height + 2 * margin) return restingBox(p, rest, view, { margin, minWidth: 96, maxShare: 0.6 });
+  const top = below >= above ? target.top + target.height + (below - height) / 2 : (above - height) / 2;
+  return { left: (view.width - width) / 2, top, width, height };
 }
