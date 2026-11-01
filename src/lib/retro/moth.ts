@@ -1,27 +1,31 @@
 /**
- * A single small moth that now and then wanders into the lamp's beam, flutters about for
- * a few seconds and fades back into the dark, with long quiet gaps between visits. Pure
- * maths over a random source and a time in seconds (the canvas only draws what `mothAt`
- * says), so the schedule, bounds and fades are tested. Coordinates are 0-1 inside the
- * beam's box, like the dust motes.
+ * Three small moths that flutter around the lamp's light all the time. Each has its own
+ * home orbit near the lamp, wander speeds, wing-beat rate and phase, depth (size and
+ * brightness), so they never move together. Pure maths over a random source and a time in
+ * seconds (the canvas only draws what `mothAt` says), so the bounds and independence are
+ * tested. Coordinates are 0-1 inside the beam's box, like the dust motes.
  */
-import { pointInPolygon, type Point } from "./dust.ts";
+import type { Point } from "./dust.ts";
 
-export interface Visit {
-  /** Where it comes in, where it leaves, and the point it circles between (all inside the beam). */
-  from: Point;
-  to: Point;
-  /** Seconds the visit lasts. */
-  duration: number;
-  /** Wander amplitude (box units), slow sway speeds (rad/s) and phases per axis. */
-  amp: number;
+export interface Moth {
+  /** The point it circles: near the lamp's mouth, a little different for each moth. */
+  cx: number;
+  cy: number;
+  /** Wander radii (box units), slow sway speeds (rad/s) and phases per axis. */
+  rx: number;
+  ry: number;
   fx: number;
   fy: number;
   px: number;
   py: number;
+  /** Speed of the slow breathing of the radius, and its phase. */
+  fr: number;
+  pr: number;
   /** Wing beats per second and a phase. */
   beat: number;
   pb: number;
+  /** 0 (far) to 1 (near): nearer moths are bigger and brighter. */
+  depth: number;
 }
 
 export interface MothFrame {
@@ -31,82 +35,67 @@ export interface MothFrame {
   angle: number;
   /** Wing spread, 0 (closed) to 1 (open). */
   open: number;
-  /** Overall opacity, 0 at both ends of the visit. */
+  /** Overall opacity. */
   a: number;
+  /** Size multiplier from depth. */
+  size: number;
 }
 
-/** Quiet time between visits, in seconds: long enough to be a small surprise, never a loop. */
-export const GAP_MIN = 25;
-export const GAP_MAX = 60;
-/** How long a visit lasts. */
-export const VISIT_MIN = 8;
-export const VISIT_MAX = 14;
-/** The moth stays this far inside the box edge. */
+export const MOTH_COUNT = 3;
+/** The moths stay this far inside the box edge. */
 export const EDGE = 0.04;
-/** Its wingspan in CSS px at the base size (scaled up with the picture, like the dust). */
+/** Wingspan in CSS px at the base size (scaled up with the picture, like the dust). */
 export const SPAN = 7;
+/** The lamp's mouth in the beam's box: what they flutter around. */
+export const LIGHT: Point = [0.34, 0.12];
 
 export type Random = () => number;
 
-/** A pick inside the beam, away from its edges, found by rejection (the polygon is non-convex enough to need it). */
-function inside(poly: readonly Point[], rnd: Random): Point {
-  for (let i = 0; i < 200; i++) {
-    const x = EDGE + rnd() * (1 - 2 * EDGE);
-    const y = EDGE + rnd() * (1 - 2 * EDGE);
-    if (pointInPolygon(x, y, poly)) return [x, y];
-  }
-  const [x, y] = poly[0];
-  return [x, y];
-}
-
-export function nextGap(rnd: Random): number {
-  return GAP_MIN + rnd() * (GAP_MAX - GAP_MIN);
-}
-
-export function makeVisit(poly: readonly Point[], rnd: Random): Visit {
+export function makeMoths(rnd: Random, count = MOTH_COUNT): Moth[] {
   const between = (a: number, b: number) => a + rnd() * (b - a);
-  return {
-    from: inside(poly, rnd),
-    to: inside(poly, rnd),
-    duration: between(VISIT_MIN, VISIT_MAX),
-    amp: between(0.05, 0.1),
-    fx: between(0.9, 1.5),
-    fy: between(1.1, 1.9),
+  return Array.from({ length: count }, (_, i) => ({
+    // Each moth gets its own third of the circle around the light so they start apart.
+    ...(() => {
+      const a = ((i + rnd() * 0.6) / count) * Math.PI * 2;
+      const r = between(0.04, 0.12);
+      return { cx: LIGHT[0] + Math.cos(a) * r, cy: LIGHT[1] + 0.14 + Math.sin(a) * r * 0.6 };
+    })(),
+    rx: between(0.08, 0.14),
+    ry: between(0.06, 0.11),
+    fx: between(0.7, 1.7),
+    fy: between(0.8, 2.0),
     px: between(0, Math.PI * 2),
     py: between(0, Math.PI * 2),
-    beat: between(5, 7),
+    fr: between(0.1, 0.3),
+    pr: between(0, Math.PI * 2),
+    beat: between(5, 7.5),
     pb: between(0, Math.PI * 2),
-  };
+    depth: between(0, 1),
+  }));
 }
 
 const clamp = (v: number) => Math.min(1 - EDGE, Math.max(EDGE, v));
-const smooth = (p: number) => p * p * (3 - 2 * p);
 
-/** Where the path is at `t` seconds into the visit, before the clamp (a drift from `from` to `to` with an irregular sway on top). */
-function path(v: Visit, t: number): Point {
-  const p = Math.min(1, Math.max(0, t / v.duration));
-  const e = smooth(p);
-  // Two unequal sines per axis so the loops never repeat exactly.
-  const wx = Math.sin(t * v.fx + v.px) + 0.5 * Math.sin(t * v.fx * 2.3 + v.py);
-  const wy = Math.sin(t * v.fy + v.py) + 0.5 * Math.cos(t * v.fy * 1.9 + v.px);
-  return [clamp(v.from[0] + (v.to[0] - v.from[0]) * e + (v.amp * wx) / 1.5), clamp(v.from[1] + (v.to[1] - v.from[1]) * e + (v.amp * wy) / 1.5)];
+/** Where the moth is at `t` seconds: two unequal sines per axis around its home, with a slowly breathing radius, so the loops never repeat exactly. */
+function path(m: Moth, t: number): Point {
+  const breathe = 0.7 + 0.3 * Math.sin(t * m.fr + m.pr);
+  const wx = Math.sin(t * m.fx + m.px) + 0.5 * Math.sin(t * m.fx * 2.3 + m.py);
+  const wy = Math.sin(t * m.fy + m.py) + 0.5 * Math.cos(t * m.fy * 1.9 + m.px);
+  return [clamp(m.cx + (m.rx * breathe * wx) / 1.5), clamp(m.cy + (m.ry * breathe * wy) / 1.5)];
 }
 
-/** The moth `t` seconds into a visit, or null once it is over (or before it begins). */
-export function mothAt(v: Visit, t: number): MothFrame | null {
-  if (t < 0 || t > v.duration) return null;
-  const [x, y] = path(v, t);
-  const [x2, y2] = path(v, t + 0.05);
-  // Fade in and out over the first and last 1.5 s so it neither pops in nor out.
-  const fade = Math.min(1, t / 1.5, (v.duration - t) / 1.5);
+export function mothAt(m: Moth, t: number): MothFrame {
+  const [x, y] = path(m, t);
+  const [x2, y2] = path(m, t + 0.05);
   // Short glides now and then: the beat slows and the wings stay mostly open.
-  const glide = 0.5 + 0.5 * Math.sin(t * 0.7 + v.pb);
-  const beat = Math.abs(Math.cos(Math.PI * v.beat * (1 - 0.6 * glide * glide) * t + v.pb));
+  const glide = 0.5 + 0.5 * Math.sin(t * 0.7 + m.pb);
+  const beat = Math.abs(Math.cos(Math.PI * m.beat * (1 - 0.6 * glide * glide) * t + m.pb));
   return {
     x,
     y,
     angle: Math.atan2(y2 - y, x2 - x),
     open: 0.25 + 0.75 * (glide > 0.8 ? 0.6 + 0.4 * beat : beat),
-    a: 0.9 * smooth(Math.max(0, fade)),
+    a: 0.6 + 0.3 * m.depth,
+    size: 0.8 + 0.5 * m.depth,
   };
 }

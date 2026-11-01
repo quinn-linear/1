@@ -1,5 +1,5 @@
 /**
- * Dust motes in the lamp's beam: a sprinkling of tiny warm specks that drift very slowly,
+ * Dust motes in the lamp's beam: a sprinkling of tiny warm specks that drift and swirl gently,
  * each fading in and out over its own long cycle. Pure maths (positions come from a
  * seeded generator and a time in seconds) so the behaviour is tested; the canvas only
  * draws what `moteAt` says. Coordinates are 0-1 inside the beam's box.
@@ -58,15 +58,15 @@ export function makeMotes(poly: readonly Point[], count = MOTE_COUNT, seed = 7):
     motes.push({
       x,
       y,
-      dx: between(-0.03, 0.06) * (0.5 + depth),
-      dy: between(-0.09, -0.02) * (0.5 + depth),
-      ax: between(0.005, 0.02),
-      ay: between(0.004, 0.015),
-      fx: between(0.12, 0.3),
-      fy: between(0.1, 0.25),
+      dx: between(-0.1, 0.16) * (0.5 + depth),
+      dy: between(-0.22, -0.05) * (0.5 + depth),
+      ax: between(0.02, 0.05),
+      ay: between(0.015, 0.04),
+      fx: between(0.25, 0.6),
+      fy: between(0.2, 0.5),
       px: between(0, Math.PI * 2),
       py: between(0, Math.PI * 2),
-      period: between(60, 110),
+      period: between(28, 55),
       start: rnd(),
       depth,
     });
