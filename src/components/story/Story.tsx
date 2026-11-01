@@ -6,6 +6,7 @@ import { CARD_IDS, type Recap } from "@/lib/recap";
 import { keyToAction, resolveGesture, step, type StoryAction } from "@/lib/storyNav";
 import { CARD_BACKGROUNDS, CARD_TITLES, CardBody } from "./cards";
 import { stack } from "./primitives";
+import { ShareDialog } from "./ShareDialog";
 
 const INTERACTIVE = "button, a, form, input, select, textarea";
 
@@ -19,6 +20,7 @@ export function Story({ recap }: { recap: Recap }) {
   const count = CARD_IDS.length;
   const [pos, setPos] = useState({ index: 0, direction: 1 });
   const { index, direction } = pos;
+  const [sharing, setSharing] = useState(false);
   const pointer = useRef<{ x: number; y: number } | null>(null);
 
   const go = useCallback(
@@ -34,6 +36,7 @@ export function Story({ recap }: { recap: Recap }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (sharing) return; // the share dialog owns the keyboard
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const action = keyToAction(e.key);
       if (!action) return;
@@ -44,7 +47,7 @@ export function Story({ recap }: { recap: Recap }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [go]);
+  }, [go, sharing]);
 
   const id = CARD_IDS[index];
 
@@ -123,11 +126,23 @@ export function Story({ recap }: { recap: Recap }) {
 
         <div className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-between px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <ControlButton label="Previous card" disabled={index === 0} onClick={() => go("prev")} glyph="←" />
-          <p aria-hidden className="text-xs font-bold uppercase tracking-widest text-white/70">
-            {index + 1} / {count}
-          </p>
+          <div className="flex flex-col items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setSharing(true)}
+              aria-haspopup="dialog"
+              className="rounded-full bg-white px-5 py-2.5 text-sm font-extrabold text-indigo-950 shadow-lg transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              Share <span className="sr-only">this card: {CARD_TITLES[id]}</span>
+            </button>
+            <p aria-hidden className="text-xs font-bold uppercase tracking-widest text-white/70">
+              {index + 1} / {count}
+            </p>
+          </div>
           <ControlButton label="Next card" disabled={index === count - 1} onClick={() => go("next")} glyph="→" />
         </div>
+
+        {sharing && <ShareDialog key={id} card={id} title={CARD_TITLES[id]} onClose={() => setSharing(false)} />}
       </div>
     </MotionConfig>
   );

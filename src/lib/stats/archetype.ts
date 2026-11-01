@@ -105,3 +105,5 @@ export function classifyArchetype(input: {
     basis: { totalClosed: total, minCompletions: MIN_COMPLETIONS, timeZone: input.timeZone, traits },
   };
 }
+
+export { COPY as ARCHETYPE_COPY };

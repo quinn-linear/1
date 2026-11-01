@@ -4,6 +4,8 @@ A Spotify Wrapped-style yearly recap for Linear (calendar year 2026). Built with
 
 ## Status
 
+Step 6 adds per-card sharing (below), on top of step 5 (merged in #5).
+
 Step 5 adds the `/wrapped` story cards (below), on top of step 4 (merged in #4).
 
 Step 4 adds archetype classification on top of the step 3 stats engine (merged in #3).
@@ -65,3 +67,20 @@ Thresholds are judgment calls (no spec was given) and live in `THRESHOLD_PERCENT
 `/wrapped` renders an 11-card, full-screen story (Framer Motion): intro, issues closed, archetype, peak month, longest streak, biggest project, top collaborator, integrations, the one that got away, label of the year, summary. Navigate by tapping (left third goes back), swiping, arrow keys / space, the prev/next buttons, or the progress segments. Cards do not auto-advance. Reduced motion is respected (`MotionConfig reducedMotion="user"`, no count-up or orbit).
 
 The server page computes `WrappedStats` and passes only `toRecap(stats)` (`src/lib/recap.ts`) to the client: no ids, raw timestamps or tokens. Missing metrics render a short note, never made-up data. Honest caveats are on the cards: collaborator is a creator/assignee proxy, integrations are workspace-level (or "can't see these" when unreadable), and counts may be undercounts when `truncated`. Dedicated empty/loading states, share images and meta tags are later steps.
+
+## Sharing (step 6)
+
+Every story card has a **Share** button that opens a panel with: Share on X (opens X's own composer with prefilled text; nothing is posted for you), Copy link, Download image (1080x1920) and Download wide image (1200x630). Nothing is created until the panel opens, and sharing one card never publishes the rest of the recap.
+
+**Stateless links, no database.** `POST /api/wrapped/share {card}` (signed-in only, `private, no-store`) builds a snapshot of just that card on the server from the safe `Recap` and returns `/s/<token>`. The token is `base64url(JSON).hmac`: the card's minimum data, validated strictly on every read (exact keys, ranges, text cleaned of control/bidi characters and length-capped) and HMAC-signed (key derived from `LINEAR_CLIENT_SECRET` via a separate HKDF context) so nobody can mint arbitrary cards on our domain. `/s/<token>` (page) and `/s/<token>/image?f=story|og[&download=1]` are public, never read cookies, and only depend on the token, so images are cached `public, immutable`.
+
+What a link contains per card: year plus that card's displayed values. Named cards (project, collaborator, issue title, label, integration names) are flagged in the panel with an explicit list of what becomes public and a required checkbox. Never included: tokens, ids, issue identifiers/URLs, avatars, timestamps, the viewer's name, or raw stats. The summary card shares counts and archetype only, not project/collaborator/label/issue names.
+
+Limits and honest limitations:
+- The token is capped at 1,024 characters (worst case is about 600), so `/s/<token>` stays well under the ~2,000-character URL limit. Names are capped at 40 characters, issue titles at 80 (truncated with an ellipsis), and at most 8 integration names.
+- The data lives in the link itself, so a link **cannot be revoked or expired**; anyone who has it can view that card. Rotating `LINEAR_CLIENT_SECRET` invalidates all links (and sessions).
+- Links are not anonymous by themselves: a named card shows whatever names it contains.
+- Images use `next/og` (Next's bundled `@vercel/og`) with the bundled Geist Regular font (no bold weight). To avoid render-time requests to emoji/font CDNs, image text is limited to Latin characters; other characters show as `?` in the image (the shared page and link text keep them).
+- Image generation is CPU-bound; abuse is bounded by signature checks (only app-minted tokens render) and CDN caching, but there is no rate limiter.
+- Card caveats carry over: counts cap at 5000 issues (`truncated` shows an undercount note), collaborator is a creator/assignee proxy, and integrations are workspace-level.
+- Preview meta tags (`og:image` etc.) and loading/empty states are step 7; shared pages are `noindex` for now.
