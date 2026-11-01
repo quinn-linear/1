@@ -4,7 +4,7 @@ A Spotify Wrapped-style yearly recap for Linear (calendar year 2026). Built with
 
 ## Status
 
-Step 2: read-only Linear OAuth sign-in, redirecting to a placeholder `/wrapped` page. Stats, cards and sharing come in later PRs.
+Step 3: server-side stats engine on top of the step 2 read-only OAuth sign-in. `/wrapped` is still a placeholder; archetypes, cards and sharing come in later PRs.
 
 ## Development
 
@@ -13,6 +13,7 @@ npm install
 npm run dev        # http://localhost:3000
 npm run lint
 npm run typecheck
+npm test           # stats engine unit tests (node:test, Node 22.18+)
 npm run build
 ```
 
@@ -25,6 +26,20 @@ npm run build
 3. Copy `.env.example` to `.env.local` and set `LINEAR_CLIENT_ID` and `LINEAR_CLIENT_SECRET` (also set them in Vercel project env vars).
 
 Only the `read` scope is requested. Flow: `/api/auth/linear` sets a random `state` cookie and redirects to Linear; `/api/auth/linear/callback` verifies `state`, exchanges the code server-side, and stores the access token AES-256-GCM encrypted in an httpOnly, SameSite=Lax (Secure in production) cookie that lasts at most 24h, then redirects to `/wrapped`. The token is never sent to client code or logged, and nothing is stored in a database. Redirect targets are fixed paths, not user input.
+
+## Stats engine
+
+`src/lib/stats` builds a typed JSON recap (`WrappedStats`, see `types.ts`) for a calendar year (default 2026, `getWrappedStats(token, year)`). `/wrapped` computes it server-side on the first visit after login, and `GET /api/wrapped/stats[?year=YYYY]` returns it for the signed-in user (`private, no-store`). Nothing is stored: results live only in a 10-minute in-memory memo keyed by a hash of the token, never in cookies or a database.
+
+Semantics:
+- "Closed" = issue currently assigned to the viewer with `completedAt` in the year. Canceled issues are excluded.
+- Days, hours, weekdays and months use the viewer's Linear `timezone` (UTC if unset/invalid). The year is bounded in local time: the API query is padded by 14h and results are filtered by local year.
+- Streak = longest run of consecutive local calendar days with at least one closed issue.
+- Biggest project / label of year = most closed issues / most-used label on closed issues. Ties go to the earliest month or lowest id.
+- Top collaborator = person sharing the most closed issues with the viewer as creator/assignee.
+- Oldest open issue = earliest `createdAt` among assigned issues not completed or canceled.
+
+Limitations (also returned in `limitations`): `completedAt` is the latest close time; issues reassigned away from the viewer are not counted; comments, mentions and subscribers are not used for collaboration; integrations are workspace-level and may be `unavailable` under the `read` scope; each list is capped at 5000 issues (`truncated: true` if hit). Requests retry 429/5xx/`RATELIMITED` with bounded backoff (honoring `Retry-After`/rate-limit reset, max 4 retries, 15s per wait).
 
 ## Deploy
 
