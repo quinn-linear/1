@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccessToken } from "@/lib/session";
+import { getWrappedStats, type WrappedStats } from "@/lib/stats";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { robots: { index: false } };
 
 export default async function WrappedPage() {
-  if (!(await getAccessToken())) redirect("/");
+  const token = await getAccessToken();
+  if (!token) redirect("/");
+
+  // Computed server-side from the Linear API on first visit after login; the
+  // result is never put in a cookie or client component (cards come later).
+  let stats: WrappedStats | null = null;
+  try {
+    stats = await getWrappedStats(token);
+  } catch {
+    stats = null;
+  }
 
   return (
     <main className="relative isolate flex min-h-dvh flex-col justify-between overflow-hidden px-6 pb-10 pt-8 sm:px-10">
@@ -28,7 +39,9 @@ export default async function WrappedPage() {
           </span>
         </h1>
         <p className="animate-rise mt-8 max-w-md text-xl font-medium text-white/85 [animation-delay:150ms] sm:text-2xl">
-          Signed in with read-only access. Your 2026 recap is cooking.
+          {stats
+            ? `${stats.totalClosed} issues closed in ${stats.year}. Your recap is cooking.`
+            : "Signed in with read-only access, but we couldn't load your stats. Try again shortly."}
         </p>
       </div>
 
