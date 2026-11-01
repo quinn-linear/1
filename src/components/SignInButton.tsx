@@ -1,12 +1,5 @@
-/**
- * Placeholder for "Sign in with Linear".
- *
- * Intentionally NOT functional yet: the read-only Linear OAuth flow
- * (LINEAR_CLIENT_ID / LINEAR_CLIENT_SECRET, httpOnly cookie) lands in the next PR.
- * To wire it up, set `href` to the OAuth start route (e.g. /api/auth/linear)
- * and drop `disabled`.
- */
-export function SignInButton({ href }: { href?: string }) {
+/** "Sign in with Linear": links to the read-only OAuth start route. */
+export function SignInButton({ href }: { href: string }) {
   const className =
     "group inline-flex w-full items-center justify-center gap-3 rounded-full bg-white px-8 py-5 text-lg font-bold text-black shadow-[0_0_60px_-10px_rgba(167,139,250,0.9)] transition sm:w-auto";
 
@@ -17,27 +10,12 @@ export function SignInButton({ href }: { href?: string }) {
     </>
   );
 
-  if (href) {
-    return (
+  return (
+    <div className="flex flex-col items-start gap-3">
       <a href={href} className={`${className} hover:scale-105 active:scale-95`}>
         {content}
       </a>
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <button
-        type="button"
-        disabled
-        aria-describedby="signin-note"
-        className={`${className} cursor-not-allowed opacity-90`}
-      >
-        {content}
-      </button>
-      <p id="signin-note" className="text-sm text-white/60">
-        Sign-in opens soon. Read-only access, nothing stored.
-      </p>
+      <p className="text-sm text-white/60">Read-only access, nothing stored.</p>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { SignInButton } from "@/components/SignInButton";
+import { START_PATH } from "@/lib/auth";
 
 const YEAR = 2026;
 
@@ -9,7 +10,21 @@ const teasers = [
   { label: "Longest streak", value: "Days?!", color: "from-emerald-400 to-cyan-500" },
 ];
 
-export default function Home() {
+const errors: Record<string, string> = {
+  config: "Sign-in isn't configured yet.",
+  state: "That sign-in attempt expired or looked off. Try again.",
+  denied: "Sign-in was cancelled.",
+  token: "Linear didn't complete the sign-in. Try again.",
+};
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  const errorMessage = error ? errors[error] : undefined;
+
   return (
     <main className="relative isolate min-h-dvh overflow-hidden">
       <div aria-hidden className="absolute inset-0 -z-10">
@@ -37,7 +52,12 @@ export default function Home() {
             ready to flex.
           </p>
           <div className="animate-rise mt-10 [animation-delay:300ms]">
-            <SignInButton />
+            <SignInButton href={START_PATH} />
+            {errorMessage && (
+              <p role="alert" className="mt-4 text-sm font-semibold text-yellow-200">
+                {errorMessage}
+              </p>
+            )}
           </div>
         </div>
 
