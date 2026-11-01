@@ -25,11 +25,7 @@ export default async function SharedCardPage({ params }: { params: Promise<{ tok
   const { width, height } = IMAGE_FORMATS.story;
 
   return (
-    <main className="relative isolate flex min-h-dvh flex-col items-center justify-center gap-6 overflow-hidden px-4 py-8">
-      <div aria-hidden className="absolute inset-0 -z-10">
-        <div className="animate-drift absolute -left-1/4 -top-1/3 h-[70vmax] w-[70vmax] rounded-full bg-indigo-500/20 blur-[140px]" />
-        <div className="grain absolute inset-0" />
-      </div>
+    <main className="desk flex min-h-dvh flex-col items-center justify-center gap-5 px-3 py-6">
       <h1 className="sr-only">{copy.kicker}: {copy.headline}</h1>
       {/* Same-origin generated image; next/image would only add a pointless optimizer hop. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -38,10 +34,10 @@ export default async function SharedCardPage({ params }: { params: Promise<{ tok
         width={width}
         height={height}
         alt={copy.alt}
-        className="h-auto max-h-[78dvh] w-auto max-w-full rounded-3xl shadow-[0_30px_90px_-30px_rgba(139,92,246,0.6)] ring-1 ring-white/15"
+        className="h-auto max-h-[74dvh] w-auto max-w-full border-2 border-black shadow-[8px_10px_0_rgb(0_0_0/0.55)]"
       />
-      <p className="max-w-sm text-center text-sm text-white/55">One card, shared by link. Nothing else from this recap is public.</p>
-      <Link href="/" className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+      <p className="max-w-sm text-center text-lg text-ph/80">One card, shared by link. Nothing else from this recap is public.</p>
+      <Link href="/" className="term-btn">
         Get your own Linear Wrapped
       </Link>
     </main>

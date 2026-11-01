@@ -49,15 +49,19 @@ async function WrappedContent({ token, showCards }: { token: string; showCards: 
   }
 
   return (
-    <main className="flex min-h-dvh flex-col items-start justify-center gap-6 px-6 sm:px-10">
-      <p className="max-w-md text-xl leading-relaxed text-white/65 sm:text-2xl">
-        Signed in with read-only access, but we couldn&apos;t load your stats. Try again shortly.
-      </p>
-      <form action="/api/auth/logout" method="post">
-        <button type="submit" className="rounded-full border border-white/30 px-5 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10">
-          Sign out
-        </button>
-      </form>
+    <main className="desk flex min-h-dvh items-center px-2 py-4 sm:px-6">
+      <div className="case mx-auto w-full max-w-3xl rounded-[14px] p-3 sm:p-5">
+        <div className="crt relative flex flex-col items-start gap-6 overflow-hidden rounded-[2.5%/3.5%] border-4 border-[#0d0c08] p-5 text-ph phosphor sm:p-8">
+          <p className="text-xl leading-snug sm:text-3xl">
+            ?LOAD ERROR. Signed in with read-only access, but we couldn&apos;t load your stats. Try again shortly.
+          </p>
+          <form action="/api/auth/logout" method="post">
+            <button type="submit" className="term-btn">
+              Sign out
+            </button>
+          </form>
+        </div>
+      </div>
     </main>
   );
 }

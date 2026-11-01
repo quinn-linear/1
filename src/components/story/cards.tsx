@@ -8,7 +8,7 @@ import { CARD_ACCENTS } from "@/lib/share/theme";
 import { SPARSE_NOTE, recapDensity } from "@/lib/sparse";
 import { ClockFace, ComebackTimeline, ConstellationChart, FinishLine, ScopeChart } from "./recapCharts";
 import { AgeTrack, DayChain, Meter, MonthChart, Ring, YearSpark } from "./charts";
-import { HoloCard } from "./HoloCard";
+import { DiskCard } from "./DiskCard";
 import { Avatar, Blurb, CountUp, Footnote, Headline, Huge, Kicker, Reveal, sunny } from "./primitives";
 
 export const CARD_TITLES: Record<CardId, string> = {
@@ -50,7 +50,7 @@ function Intro({ r }: { r: Recap }) {
         <Kicker>Hey {r.viewer.name}</Kicker>
       </Reveal>
       <Reveal>
-        <h1 className="text-[16vw] font-semibold leading-[0.88] tracking-[-0.055em] sm:text-[8.5rem]">
+        <h1 className="text-[18vw] leading-[0.85] sm:text-[9.5rem]">
           Your {r.year}
           <span className={`block ${sunny}`}>in Linear</span>
         </h1>
@@ -59,7 +59,7 @@ function Intro({ r }: { r: Recap }) {
         <YearSpark monthly={r.monthly} />
       </Reveal>
       <Reveal>
-        <Blurb>Tap to see what you shipped. Snacks optional.</Blurb>
+        <Blurb>Tap, swipe or press → to page through. Snacks optional.</Blurb>
       </Reveal>
       {recapDensity(r) === "sparse" && (
         <Reveal>
@@ -81,7 +81,7 @@ function Total({ r }: { r: Recap }) {
           <Huge className={`text-[17vw] sm:text-[6.5rem] ${sunny}`}>
             <CountUp to={r.totalClosed} />
           </Huge>
-          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.25em] text-white/50">{r.totalClosed === 1 ? "issue" : "issues"}</p>
+          <p className="mt-2 font-mono text-sm uppercase tracking-[0.25em] text-ph/70">{r.totalClosed === 1 ? "issue" : "issues"}</p>
         </Ring>
       </Reveal>
       <Reveal>
@@ -104,14 +104,14 @@ function Archetype({ r }: { r: Recap }) {
       </Reveal>
       <Reveal className="mx-auto">
         <motion.div aria-hidden className="h-44 w-44 sm:h-60 sm:w-60" animate={{ rotate: 360 }} transition={{ duration: 90, ease: "linear", repeat: Infinity }}>
-          <div className="h-full w-full drop-shadow-[0_0_30px_var(--a1)] [&>svg]:h-full [&>svg]:w-full">{sigil(r.archetype.id, 240, CARD_ACCENTS.archetype, "arc-sigil")}</div>
+          <div className="h-full w-full [&>svg]:h-full [&>svg]:w-full">{sigil(r.archetype.id, 240, CARD_ACCENTS.archetype, "arc-sigil")}</div>
         </motion.div>
       </Reveal>
       <Reveal>
         <Headline className={`text-[15vw] sm:text-8xl ${sunny}`}>{r.archetype.name}</Headline>
       </Reveal>
       <Reveal>
-        <p className="text-xl font-medium tracking-tight text-white/90 sm:text-3xl">{r.archetype.tagline}</p>
+        <p className="text-xl font-medium tracking-tight text-ph/90 sm:text-3xl">{r.archetype.tagline}</p>
       </Reveal>
       <Reveal>
         <Blurb>{r.archetype.description}</Blurb>
@@ -159,7 +159,7 @@ function Streak({ r }: { r: Recap }) {
       {s ? (
         <>
           <Reveal>
-            <Huge className="text-white">
+            <Huge className="text-ph">
               <CountUp to={s.days} />
             </Huge>
           </Reveal>
@@ -235,8 +235,8 @@ function Collaborator({ r }: { r: Recap }) {
           <Reveal className="w-full">
             <div className="flex items-center gap-3" aria-hidden>
               <Avatar name={r.viewer.name} src={r.viewer.avatarUrl} size="h-20 w-20 sm:h-24 sm:w-24" />
-              <div className="relative h-px flex-1 overflow-visible bg-gradient-to-r from-[var(--a1)] to-[var(--a2)]">
-                <motion.span className="absolute -top-[3px] h-[7px] w-[7px] rounded-full bg-white shadow-[0_0_14px_var(--a1)]" animate={{ left: ["0%", "100%", "0%"] }} transition={{ duration: 4, ease: "easeInOut", repeat: Infinity }} />
+              <div className="relative h-0 flex-1 overflow-visible border-t-2 border-dashed border-[var(--a1)]">
+                <motion.span className="absolute -top-[7px] h-3 w-3 bg-[var(--a2)]" animate={{ left: ["0%", "100%", "0%"] }} transition={{ duration: 4, ease: "linear", repeat: Infinity }} />
               </div>
               <Avatar name={c.name} src={c.avatarUrl} size="h-20 w-20 sm:h-24 sm:w-24" />
             </div>
@@ -274,8 +274,8 @@ function Integrations({ r }: { r: Recap }) {
       {status === "ok" && services.length > 0 ? (
         <>
           <Reveal className="relative mx-auto my-2 h-72 w-72 sm:h-96 sm:w-96">
-            <div aria-hidden className="absolute inset-[12%] rounded-full border border-dashed border-white/25" />
-            <div className="absolute left-1/2 top-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full glass text-center font-mono text-[10px] font-medium uppercase leading-tight tracking-widest shadow-[0_0_70px_-10px_var(--a1)]">
+            <div aria-hidden className="absolute inset-[12%] border border-dashed border-ph/40" />
+            <div className="absolute left-1/2 top-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center panel text-center font-mono text-xs font-medium uppercase leading-tight tracking-widest">
               Your
               <br />
               workspace
@@ -291,7 +291,7 @@ function Integrations({ r }: { r: Recap }) {
                 return (
                   <li key={s} className="absolute left-1/2 top-1/2 h-0 w-0" style={{ transform: `rotate(${angle}deg) translateY(-8.5rem)` }}>
                     <motion.span
-                      className="glass absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium text-white shadow-[0_0_24px_-6px_var(--a1)] sm:text-sm"
+                      className="panel absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap px-3 py-1 text-xs font-medium text-ph sm:text-sm"
                       style={{ rotate: -angle }}
                       animate={{ rotate: [-angle, -angle - 360] }}
                       transition={{ duration: 60, ease: "linear", repeat: Infinity }}
@@ -336,7 +336,7 @@ function GotAway({ r }: { r: Recap }) {
       {o ? (
         <>
           <Reveal>
-            <p className="font-mono text-lg font-medium text-white/50 sm:text-2xl">{o.identifier}</p>
+            <p className="font-mono text-lg font-medium text-ph/70 sm:text-2xl">{o.identifier}</p>
             <Headline className={`mt-2 break-words text-[9vw] sm:text-6xl ${sunny}`}>{o.title}</Headline>
           </Reveal>
           <Reveal>
@@ -576,7 +576,7 @@ function PhotoFinish({ r }: { r: Recap }) {
             <Huge className={`text-[18vw] sm:text-[7rem] ${sunny}`}>{f.time}</Huge>
           </Reveal>
           <Reveal>
-            <p className="font-mono text-xs uppercase tracking-widest text-white/50">The last thing you closed</p>
+            <p className="font-mono text-xs uppercase tracking-widest text-ph/70">The last thing you closed</p>
             <Headline className="mt-2 break-words text-[8vw] sm:text-5xl">{f.title ?? "An issue"}</Headline>
           </Reveal>
           <Reveal className="w-full">
@@ -604,8 +604,8 @@ function PhotoFinish({ r }: { r: Recap }) {
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-white/10 py-1.5 last:border-0">
-      <dt className="font-mono text-[11px] uppercase tracking-widest text-white/45">{k}</dt>
+    <div className="flex items-baseline justify-between gap-4 border-b border-ph/40 py-1.5 last:border-0">
+      <dt className="font-mono text-sm uppercase tracking-widest text-ph/70">{k}</dt>
       <dd className="min-w-0 break-words text-right text-sm font-medium">{v}</dd>
     </div>
   );
@@ -620,13 +620,13 @@ function Summary({ r }: { r: Recap }) {
           {r.viewer.name}&apos;s {r.year} in Linear
         </Kicker>
       </Reveal>
-      <HoloCard recap={r} />
+      <DiskCard recap={r} />
       <Reveal>
-        <p className="text-center text-xs text-white/45">Tilt it, or touch and drag. Download it from Share.</p>
+        <p className="text-center text-xs text-ph/70">Tilt the disk, or touch and drag. Download it from Share.</p>
       </Reveal>
       <Reveal className="w-full max-w-sm">
-        <details className="glass rounded-2xl px-4 py-2 text-left" data-no-nav>
-          <summary className="cursor-pointer py-1 font-mono text-[11px] uppercase tracking-widest text-white/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+        <details className="panel px-4 py-2 text-left" data-no-nav>
+          <summary className="cursor-pointer py-1 font-mono text-sm uppercase tracking-widest text-ph/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber">
             All your numbers
           </summary>
           <dl className="mt-1">
@@ -648,7 +648,7 @@ function Summary({ r }: { r: Recap }) {
       {r.truncated && <Footnote>Linear returned more issues than we fetch, so counts may be undercounts.</Footnote>}
       <Reveal>
         <form action="/api/auth/logout" method="post">
-          <button type="submit" className="glass rounded-full px-5 py-2 text-sm font-medium text-white/80 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+          <button type="submit" className="panel px-5 py-2 text-sm font-medium text-ph/80 transition hover:text-ph focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber">
             Sign out
           </button>
         </form>

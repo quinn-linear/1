@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { VT323 } from "next/font/google";
+import { SoundProvider } from "@/components/retro/Sound";
 import { resolveSiteOrigin } from "@/lib/site";
 import "./globals.css";
 
-const geist = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// The one typeface: a bitmap-style terminal face, used on the screen and on the case.
+const vt323 = VT323({ variable: "--font-vt323", subsets: ["latin"], weight: "400" });
 
 const TITLE = "Linear Wrapped 2026";
-const DESCRIPTION = "Your year in Linear, wrapped. Sign in with read-only access to see what you closed, your work archetype, your peak month and more.";
+const DESCRIPTION = "Your year in Linear, wrapped. Insert the floppy, sign in with read-only access and see what you closed, your work archetype, your peak month and more.";
 
 // Sets the base for relative metadata URLs. Configure `SITE_URL` (see README) for a custom domain.
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#07080b",
+  themeColor: "#0e0c09",
 };
 
 export default function RootLayout({
@@ -28,7 +29,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${vt323.variable} font-term antialiased`}>
+        <SoundProvider>{children}</SoundProvider>
+      </body>
     </html>
   );
 }
