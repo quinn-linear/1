@@ -31,14 +31,27 @@ export interface Rect {
 export const PET_SCREEN: Rect = { x: 588 / 1672, y: 167 / 941, w: 477 / 1672, h: 361 / 941 };
 
 /**
- * Crops of the picture, as fractions of it. `wide` is the whole scene (the
- * composition is never stretched). `tight` is for phones: it zooms on the
- * monitor so the terminal stays readable, instead of shrinking the lot.
+ * The notepad on the desk (lower right), measured from the picture. The cassette
+ * rests on it: `CASSETTE_REST` is the tape's box on the picture (at about the
+ * notepad's width, centred on its lined sheet).
  */
-export const PET_VIEWS: Record<"wide" | "tight", Rect> = {
-  wide: { x: 0, y: 0, w: 1, h: 1 },
-  tight: { x: 0.27, y: 0.08, w: 0.46, h: 0.54 },
-};
+export const PET_NOTEPAD: Rect = { x: 1280 / 1672, y: 655 / 941, w: 320 / 1672, h: 220 / 941 };
+export const CASSETTE_REST: Rect = { x: 1290 / 1672, y: 690 / 941, w: 270 / 1672, h: (270 * 457) / 840 / 941 };
+
+/**
+ * The monitor (its whole housing, bezel and glass) as a box on the picture: the drop
+ * target. It stops well short of the notepad and the keyboard, so a tape lying where it
+ * rests is never "over" it, even when a phone's crop leaves the tape on top of the case.
+ */
+export const PET_COMPUTER: Rect = { x: 470 / 1672, y: 118 / 941, w: 710 / 1672, h: 470 / 941 };
+
+/**
+ * What the cover crop must keep in view when the screen is too narrow or short to
+ * show the whole picture: the glass and the notepad, with the tape's margin.
+ * When both cannot fit (a phone held upright) the glass wins and the tape is pulled
+ * back inside the screen instead (see `lib/retro/cover.ts`).
+ */
+export const PET_FOCUS: Rect = { x: 560 / 1672, y: 150 / 941, w: 1080 / 1672, h: 740 / 941 };
 
 /**
  * The lamp's beam on the picture (upper left), measured from the artwork: a triangle from the

@@ -125,7 +125,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
 }
 
 /** Mute switch, always visible wherever sound can play. `screen` styles it as an on-screen button, `key` as a keycap on the hardware. */
-export function SoundToggle({ className = "", variant = "key" }: { className?: string; variant?: "key" | "screen" | "quiet" | "dock" }) {
+export function SoundToggle({ className = "", variant = "key" }: { className?: string; variant?: "key" | "screen" | "dock" }) {
   const { enabled, toggle } = useSound();
   if (variant === "dock") {
     return (
@@ -135,7 +135,7 @@ export function SoundToggle({ className = "", variant = "key" }: { className?: s
     );
   }
   const off = variant === "key" ? "bg-ink/30" : "bg-ph/40";
-  const style = variant === "key" ? "keycap" : variant === "quiet" ? "quiet-toggle" : "term-btn";
+  const style = variant === "key" ? "keycap" : "term-btn";
   return (
     <button type="button" onClick={toggle} aria-pressed={enabled} aria-label="Sound effects" className={`${style} ${className}`}>
       <span aria-hidden className={`mr-1.5 inline-block h-2 w-2 ${enabled ? "bg-[var(--led)] shadow-[0_0_6px_var(--led)]" : off}`} />

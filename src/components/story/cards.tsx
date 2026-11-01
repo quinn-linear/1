@@ -609,7 +609,7 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-function Summary({ r }: { r: Recap }) {
+function Summary({ r, onShare }: { r: Recap; onShare?: () => void }) {
   const none = "n/a";
   return (
     <>
@@ -619,10 +619,10 @@ function Summary({ r }: { r: Recap }) {
         </Kicker>
       </Reveal>
       <Reveal className="mx-auto flex w-full justify-center">
-        <Printout recap={r} />
+        <Printout recap={r} onShare={onShare} />
       </Reveal>
       <Reveal className="mx-auto">
-        <p className="text-center text-xs text-ph/70">Your report is printed. Download or share it with the Share button.</p>
+        <p className="text-center text-xs text-ph/70">Your report is printed. Share or save it with the Share button on the paper or in the bar below.</p>
       </Reveal>
       <Reveal className="mx-auto w-full max-w-sm">
         <details className="panel px-4 py-2 text-left" data-no-nav>
@@ -646,18 +646,12 @@ function Summary({ r }: { r: Recap }) {
         </details>
       </Reveal>
       {r.truncated && <Footnote>Linear returned more issues than we fetch, so counts may be undercounts.</Footnote>}
-      <Reveal className="mx-auto">
-        <form action="/api/auth/logout" method="post">
-          <button type="submit" className="panel px-5 py-2 text-sm font-medium text-ph/80 transition hover:text-ph focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber">
-            Sign out
-          </button>
-        </form>
-      </Reveal>
     </>
   );
 }
 
-const RENDERERS: Record<CardId, (props: { r: Recap }) => ReactNode> = {
+type CardProps = { r: Recap; onShare?: () => void };
+const RENDERERS: Record<CardId, (props: CardProps) => ReactNode> = {
   intro: Intro,
   total: Total,
   archetype: Archetype,
@@ -678,7 +672,7 @@ const RENDERERS: Record<CardId, (props: { r: Recap }) => ReactNode> = {
 
 export { CARD_IDS };
 
-export function CardBody({ id, recap }: { id: CardId; recap: Recap }) {
+export function CardBody({ id, recap, onShare }: { id: CardId; recap: Recap; onShare?: () => void }) {
   const Render = RENDERERS[id];
-  return <Render r={recap} />;
+  return <Render r={recap} onShare={onShare} />;
 }

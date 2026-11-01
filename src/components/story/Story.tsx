@@ -89,13 +89,23 @@ export function Story({ recap, initialIndex = 0, gate = false }: { recap: Recap;
         className="crt story-crt fixed inset-0 flex select-none flex-col text-ph phosphor"
         style={accentVars(id)}
       >
-        <div aria-hidden className={`relative z-20 flex shrink-0 items-center justify-between gap-3 border-b-2 border-ph/30 bg-black/40 px-3 py-1 text-sm uppercase tracking-[0.12em] sm:px-5 sm:text-lg ${fs.active ? "pr-14 sm:pr-16" : ""}`}>
-          <span className="shrink-0">Linear Wrapped {recap.year}</span>
-          <span className="min-w-0 truncate text-[var(--a1)]">{CARD_TITLES[id]}</span>
+        {/* Light halftone dots toward the edges, in the card's accent: the opening picture's print texture, clear of the text. */}
+        <div aria-hidden className="story-halftone" />
+        <div className={`relative z-20 flex shrink-0 items-center justify-between gap-3 border-b-2 border-ph/30 bg-black/40 px-3 py-1 text-sm uppercase tracking-[0.12em] sm:px-5 sm:text-lg ${fs.active ? "pr-14 sm:pr-16" : ""}`}>
+          <span aria-hidden className="min-w-0 truncate">Linear Wrapped<span className="hidden sm:inline"> {recap.year}</span></span>
+          <span aria-hidden className="min-w-0 flex-1 truncate text-right text-[var(--a1)]">{CARD_TITLES[id]}</span>
+          {id === "summary" && (
+            // Discreet and in the bar, so it can never sit under the full-screen exit button at the corner (the bar leaves room for it).
+            <form action="/api/auth/logout" method="post" className="shrink-0">
+              <button type="submit" className="story-signout">
+                Sign out
+              </button>
+            </form>
+          )}
         </div>
         {fs.active && (
-          // A visible way out (Esc also works): always in the corner while the browser is in full screen.
-          <button type="button" onClick={() => void fs.exit()} aria-label="Exit full screen" data-tip="Exit full screen" data-tip-below className="dock-btn dock-btn-close absolute right-2 top-2 z-30">
+          // A visible way out (Esc also works): always in the corner while the browser is in full screen, inside the safe area.
+          <button type="button" onClick={() => void fs.exit()} aria-label="Exit full screen" data-tip="Exit full screen" data-tip-below className="dock-btn dock-btn-close story-exit absolute z-30">
             <CloseX />
           </button>
         )}
@@ -145,7 +155,7 @@ export function Story({ recap, initialIndex = 0, gate = false }: { recap: Recap;
           <section key={id} aria-label={CARD_TITLES[id]} style={accentVars(id)} className="absolute inset-0">
             <Fit>
               <RevealStack skipped={skippedId === id} className="mx-auto flex w-full flex-col items-start gap-[min(1.5rem,2.2dvh)]">
-                <CardBody id={id} recap={recap} />
+                <CardBody id={id} recap={recap} onShare={() => setSharing(true)} />
               </RevealStack>
             </Fit>
           </section>

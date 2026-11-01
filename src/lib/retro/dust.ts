@@ -27,12 +27,12 @@ export interface Mote {
   depth: number;
 }
 
-export const MOTE_COUNT = 14;
+export const MOTE_COUNT = 24;
 /** The faintest and brightest a mote ever gets: never opaque, never glitter. */
-export const MAX_ALPHA = 0.34;
+export const MAX_ALPHA = 0.72;
 /** Radius in CSS px for the farthest and nearest mote. */
-export const MIN_RADIUS = 0.7;
-export const MAX_RADIUS = 1.7;
+export const MIN_RADIUS = 1;
+export const MAX_RADIUS = 2.4;
 
 export function pointInPolygon(x: number, y: number, poly: readonly Point[]): boolean {
   let inside = false;
@@ -66,7 +66,7 @@ export function makeMotes(poly: readonly Point[], count = MOTE_COUNT, seed = 7):
       fy: between(0.1, 0.25),
       px: between(0, Math.PI * 2),
       py: between(0, Math.PI * 2),
-      period: between(45, 95),
+      period: between(60, 110),
       start: rnd(),
       depth,
     });
@@ -84,7 +84,8 @@ export interface Frame {
 /** A mote at time `t` seconds. Each fades in and out smoothly over its cycle, so nothing pops when it restarts. */
 export function moteAt(m: Mote, t: number): Frame {
   const phase = (((t / m.period + m.start) % 1) + 1) % 1;
-  const fade = Math.sin(Math.PI * phase) ** 2;
+  // Mostly at full strength through the middle of the cycle, easing in and out at the ends (a pure sine would leave it dim most of the time).
+  const fade = Math.min(1, Math.sin(Math.PI * phase) * 1.8);
   // A slow, uneven shimmer (about 8 to 20 s) rides on top, never more than a third of the brightness.
   const shimmer = 0.8 + 0.2 * Math.sin(t * (0.3 + m.depth * 0.2) + m.px);
   return {

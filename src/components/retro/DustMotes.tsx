@@ -8,7 +8,7 @@ import { makeMotes, moteAt, staticFrame, type Frame } from "@/lib/retro/dust";
 /**
  * A few dust motes in the lamp's beam. One small canvas laid exactly over the beam's box
  * on the picture (`.pet-beam-zone` in globals.css, from the same fractions as the
- * terminal), so it follows the image's crop and size. It never takes pointer events or
+ * terminal), so it follows the picture's crop and size. It never takes pointer events or
  * a place in the accessibility tree, sits under the cassette and the screen, and does no
  * work while it is off screen (including when the crop hides the lamp, as on phones) or
  * the tab is hidden. Under reduced motion it draws one still, dimmer frame.
@@ -30,18 +30,20 @@ export function DustMotes() {
 
     const draw = (frames: Frame[]) => {
       ctx.clearRect(0, 0, width, height);
+      // Specks grow with the picture (the canvas is the beam's box on it), so they read the same on a laptop and a 4K screen.
+      const k = Math.min(2.2, Math.max(0.9, width / 330));
       for (const f of frames) {
         if (f.a <= 0.004) continue;
         const x = f.x * width;
         const y = f.y * height;
         // A soft warm halo, then the speck itself.
-        ctx.fillStyle = `rgba(255, 214, 150, ${(f.a * 0.18).toFixed(3)})`;
+        ctx.fillStyle = `rgba(255, 214, 150, ${(f.a * 0.3).toFixed(3)})`;
         ctx.beginPath();
-        ctx.arc(x, y, f.r * 2.6, 0, Math.PI * 2);
+        ctx.arc(x, y, f.r * k * 3, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = `rgba(255, 232, 190, ${f.a.toFixed(3)})`;
         ctx.beginPath();
-        ctx.arc(x, y, f.r, 0, Math.PI * 2);
+        ctx.arc(x, y, f.r * k, 0, Math.PI * 2);
         ctx.fill();
       }
     };

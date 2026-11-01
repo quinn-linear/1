@@ -25,10 +25,10 @@ const errors: Record<string, string> = {
 };
 
 /**
- * The landing is one screen: everything essential (title, computer, drive and
- * cassette, the plain sign-in link) is sized from the viewport so nothing
- * needs scrolling. The page only scrolls as a last resort, when the viewport is
- * so small (extreme zoom) that the content can't shrink any further.
+ * The landing is one screen: the picture fills the viewport and the cassette lies on
+ * its notepad, so nothing scrolls. The only other things on the page are out of sight
+ * until needed: a plain sign-in link for keyboards (and no-JavaScript visitors), and
+ * a sign-in error, if there is one.
  */
 export default async function Home({
   searchParams,
@@ -39,30 +39,23 @@ export default async function Home({
   const errorMessage = error ? errors[error] : undefined;
 
   return (
-    <main className="desk h-dvh overflow-y-auto overflow-x-hidden">
-      <section className="mx-auto flex h-full min-h-[20rem] max-w-[110rem] flex-col gap-2 px-3 py-2 sm:px-6 sm:py-3">
-        <header className="landing-header flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
-          <div className="min-w-0">
-            <h1 className="text-[clamp(1.5rem,min(7vw,5dvh),3rem)] leading-none tracking-wide text-amber">LINEAR WRAPPED {YEAR}</h1>
-            <p className="landing-tagline mt-1 max-w-xl text-lg leading-snug text-ph/80">Your year in Linear, loaded from a single cassette tape.</p>
-          </div>
-          <SignInButton href={START_PATH} />
-        </header>
+    <main className="scene">
+      <h1 className="sr-only">Linear Wrapped {YEAR}</h1>
+      <SignInButton href={START_PATH} />
 
-        {errorMessage && (
-          <p role="alert" className="panel max-w-xl px-3 py-1 text-lg text-amber">
-            ?ERROR: {errorMessage.toUpperCase()}
-          </p>
-        )}
+      {errorMessage && (
+        <p role="alert" className="landing-error">
+          ?ERROR: {errorMessage.toUpperCase()}
+        </p>
+      )}
 
-        <PetLanding year={YEAR} startPath={START_PATH} />
+      <PetLanding year={YEAR} startPath={START_PATH} />
 
-        <noscript>
-          <p className="panel p-3 text-lg">
-            The cassette needs JavaScript. <a href={START_PATH} className="text-amber underline">Sign in with Linear</a> to go straight to your recap.
-          </p>
-        </noscript>
-      </section>
+      <noscript>
+        <p className="landing-error" style={{ left: "0.75rem", right: "auto", top: "auto", bottom: "0.75rem" }}>
+          The cassette needs JavaScript. <a href={START_PATH} className="text-amber underline">Sign in with Linear</a> to go straight to your recap.
+        </p>
+      </noscript>
     </main>
   );
 }

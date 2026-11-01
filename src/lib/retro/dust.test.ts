@@ -6,7 +6,7 @@ import { MAX_ALPHA, MAX_RADIUS, MOTE_COUNT, makeMotes, moteAt, pointInPolygon, s
 test("the motes are sparse, deterministic, and start inside the lamp's beam", () => {
   const a = makeMotes(BEAM_POLYGON);
   assert.equal(a.length, MOTE_COUNT);
-  assert.ok(MOTE_COUNT <= 16, "a handful, not a snowfall");
+  assert.ok(MOTE_COUNT <= 28, "a sprinkling, not a snowfall");
   assert.deepEqual(a, makeMotes(BEAM_POLYGON), "same specks every render");
   for (const m of a) assert.ok(pointInPolygon(m.x, m.y, BEAM_POLYGON), `(${m.x.toFixed(2)}, ${m.y.toFixed(2)}) is in the beam`);
 });
@@ -18,7 +18,7 @@ test("the beam box sits on the lamp side of the picture and never reaches the CR
   assert.ok(BEAM_POLYGON.every(([x, y]) => x >= 0 && x <= 1 && y >= 0 && y <= 1));
 });
 
-test("motes are tiny, faint and drift slowly, with no pops or flicker", () => {
+test("motes are small, soft and drift slowly, with no pops or flicker", () => {
   const motes = makeMotes(BEAM_POLYGON);
   for (const m of motes) {
     let prev = moteAt(m, 0);
@@ -27,14 +27,14 @@ test("motes are tiny, faint and drift slowly, with no pops or flicker", () => {
     for (let t = 0.05; t <= 200; t += 0.05) {
       const f = moteAt(m, t);
       assert.ok(f.a >= 0 && f.a <= MAX_ALPHA, `alpha ${f.a}`);
-      assert.ok(f.r <= MAX_RADIUS && f.r >= 0.5, `radius ${f.r}`);
+      assert.ok(f.r <= MAX_RADIUS && f.r >= 0.9, `radius ${f.r}`);
       maxRate = Math.max(maxRate, Math.abs(f.a - prev.a) / 0.05);
       // A mote restarts its path while fully faded out; only movement you could see counts.
       if (f.a > 0.003 && prev.a > 0.003) maxStep = Math.max(maxStep, Math.hypot(f.x - prev.x, f.y - prev.y) / 0.05);
       assert.ok(f.x > -0.15 && f.x < 1.15 && f.y > -0.15 && f.y < 1.15, "stays near the beam");
       prev = f;
     }
-    assert.ok(maxRate < 0.08, `brightness changes slowly (${maxRate.toFixed(3)}/s), never a strobe`);
+    assert.ok(maxRate < 0.15, `brightness changes slowly (${maxRate.toFixed(3)}/s), never a strobe`);
     assert.ok(maxStep < 0.06, `moves slowly (${maxStep.toFixed(3)} box/s)`);
   }
 });
