@@ -4,6 +4,8 @@ A Spotify Wrapped-style yearly recap for Linear (calendar year 2026). Built with
 
 ## Status
 
+Step 5 adds the `/wrapped` story cards (below), on top of step 4 (merged in #4).
+
 Step 4 adds archetype classification on top of the step 3 stats engine (merged in #3).
 
 Step 3: server-side stats engine on top of the step 2 read-only OAuth sign-in. `/wrapped` is still a placeholder; archetypes, cards and sharing come in later PRs.
@@ -57,3 +59,9 @@ Import the repo in Vercel and set the two env vars; the Next.js preset needs no 
 - None qualify: Steady Builder.
 
 Thresholds are judgment calls (no spec was given) and live in `THRESHOLD_PERCENT`. Same completion-time and 5000-issue-cap caveats as the stats apply; the live Linear schema has still not been verified.
+
+## Story cards
+
+`/wrapped` renders an 11-card, full-screen story (Framer Motion): intro, issues closed, archetype, peak month, longest streak, biggest project, top collaborator, integrations, the one that got away, label of the year, summary. Navigate by tapping (left third goes back), swiping, arrow keys / space, the prev/next buttons, or the progress segments. Cards do not auto-advance. Reduced motion is respected (`MotionConfig reducedMotion="user"`, no count-up or orbit).
+
+The server page computes `WrappedStats` and passes only `toRecap(stats)` (`src/lib/recap.ts`) to the client: no ids, raw timestamps or tokens. Missing metrics render a short note, never made-up data. Honest caveats are on the cards: collaborator is a creator/assignee proxy, integrations are workspace-level (or "can't see these" when unreadable), and counts may be undercounts when `truncated`. Dedicated empty/loading states, share images and meta tags are later steps.
