@@ -39,11 +39,23 @@ export const PET_NOTEPAD: Rect = { x: 1280 / 1672, y: 655 / 941, w: 320 / 1672, 
 export const CASSETTE_REST: Rect = { x: 1290 / 1672, y: 690 / 941, w: 270 / 1672, h: (270 * 457) / 840 / 941 };
 
 /**
- * The monitor (its whole housing, bezel and glass) as a box on the picture: the drop
- * target. It stops well short of the notepad and the keyboard, so a tape lying where it
- * rests is never "over" it, even when a phone's crop leaves the tape on top of the case.
+ * The whole computer: monitor housing, built-in cassette deck, keyboard and base, as a box on
+ * the picture. It stops at the case's right edge, short of the notepad the tape rests on.
  */
-export const PET_COMPUTER: Rect = { x: 470 / 1672, y: 118 / 941, w: 710 / 1672, h: 470 / 941 };
+export const PET_COMPUTER: Rect = { x: 365 / 1672, y: 118 / 941, w: 900 / 1672, h: 727 / 941 };
+
+/** How far past the case the drop target reaches on every side, in picture px: a little forgiveness, still clear of the notepad's tape. */
+export const DROP_MARGIN = 24;
+/**
+ * The drop target: the computer plus `DROP_MARGIN`, so letting go on the screen, the keyboard, the
+ * built-in cassette input or just beside the case all count. Its right edge stays left of the tape's resting box.
+ */
+export const PET_DROP: Rect = {
+  x: PET_COMPUTER.x - DROP_MARGIN / 1672,
+  y: PET_COMPUTER.y - DROP_MARGIN / 941,
+  w: PET_COMPUTER.w + (2 * DROP_MARGIN) / 1672,
+  h: PET_COMPUTER.h + (2 * DROP_MARGIN) / 941,
+};
 
 /**
  * What the cover crop must keep in view when the screen is too narrow or short to

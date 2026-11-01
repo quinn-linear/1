@@ -126,3 +126,13 @@ test("keyboard mapping", () => {
   assert.equal(keyToAction("ArrowLeft"), "prev");
   assert.equal(keyToAction("a"), null);
 });
+
+test("workspace is the trimmed organization name, or null when Linear gives none", () => {
+  
+  const make = (organization: string | null) =>
+    toRecap(computeStats({ year: 2026, now: new Date("2026-11-01T00:00:00Z"), viewer: { id: "u", name: "a", displayName: "A", avatarUrl: null, timezone: "UTC", organization }, assignedCompleted: [], createdCompleted: [], openAssigned: [], integrations: { status: "ok", services: [] }, truncated: false } as never));
+  assert.equal(make("  Acme Inc ").workspace, "Acme Inc");
+  assert.equal(make(null).workspace, null);
+  assert.equal(make("   ").workspace, null);
+  assert.equal(make("x".repeat(200)).workspace?.length, 80);
+});

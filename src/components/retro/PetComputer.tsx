@@ -1,6 +1,6 @@
 import { DustMotes } from "./DustMotes";
 import type { CSSProperties, ReactNode, Ref } from "react";
-import { PET_ART, PET_BEAM, PET_COMPUTER, PET_SCREEN, type Rect } from "@/lib/retro/art";
+import { PET_ART, PET_BEAM, PET_DROP, PET_SCREEN, type Rect } from "@/lib/retro/art";
 import type { Placement } from "@/lib/retro/cover";
 
 const vars = (prefix: string, r: Rect) => ({ [`--${prefix}x`]: r.x, [`--${prefix}y`]: r.y, [`--${prefix}w`]: r.w, [`--${prefix}h`]: r.h });
@@ -31,7 +31,7 @@ export function PetComputer({ state, viewRef, placement, children }: { state: Pe
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={PET_ART.src} alt={PET_ART.alt} width={PET_ART.width} height={PET_ART.height} fetchPriority="high" draggable={false} className="pet-img pointer-events-none absolute max-w-none select-none" />
       {/* The drop target: the computer (not the notepad the tape lies on). */}
-      <div ref={viewRef} aria-hidden data-pet data-state={state} className="pointer-events-none absolute" style={pct(PET_COMPUTER)} />
+      <div ref={viewRef} aria-hidden data-pet data-state={state} className="pointer-events-none absolute" style={pct(PET_DROP)} />
       {/* A few dust motes in the lamp's beam, behind the screen and the cassette. */}
       <DustMotes />
       {/* The tube lights the room while a cassette is held over it and once it is accepted: a slow, single glow, never a flash. */}

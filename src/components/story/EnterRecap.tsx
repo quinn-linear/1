@@ -22,7 +22,7 @@ export function EnterRecap({ year, canFullscreen, onEnter }: { year: number; can
   }, [onEnter]);
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="enter-recap-title" className="absolute inset-0 z-40 flex items-center justify-center bg-[#0a0912]/90 px-4 text-center">
+    <div role="dialog" aria-modal="true" aria-labelledby="enter-recap-title" className="absolute inset-0 z-40 flex items-center justify-center bg-[#0a0912] px-4 text-center">
       <div className="flex max-w-md flex-col items-center gap-4">
         <p className="text-base uppercase tracking-[0.18em] text-ph/70">
           <span aria-hidden className="accent-text">

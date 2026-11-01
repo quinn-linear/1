@@ -8,6 +8,11 @@ import type { ArchetypeId, Comeback, PhotoFinish, ScopeSeries, WrappedStats } fr
 export interface Recap {
   year: number;
   viewer: { name: string; avatarUrl: string | null };
+  /**
+   * The connected workspace's name (from `organization { name }`, already read for the stats). Shown only on
+   * the signed-in recap: the public share snapshot never carries it, so sharing a card does not name the workspace.
+   */
+  workspace: string | null;
   totalClosed: number;
   activeDays: number;
   archetype: { id: ArchetypeId; name: string; tagline: string; description: string; insufficientData: boolean };
@@ -78,6 +83,7 @@ export function toRecap(s: WrappedStats): Recap {
   return {
     year: s.year,
     viewer: { name: personName(s.viewer), avatarUrl: s.viewer.avatarUrl },
+    workspace: s.viewer.organization?.trim().slice(0, 80) || null,
     totalClosed: s.totalClosed,
     activeDays: s.summary.activeDays,
     archetype: {

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { centeredOffset, clampOffset, containsPoint, type Box } from "./drag.ts";
+import { centeredOffset, clampOffset, containsPoint, isIntentionalDrop, startIntent, updateIntent, type Box } from "./drag.ts";
 import { MIN_SCALE, chooseScale } from "./fit.ts";
-import { CASSETTE_REST, PET_ART, PET_COMPUTER, PET_FOCUS, PET_NOTEPAD, PET_SCREEN } from "./art.ts";
+import { CASSETTE_REST, PET_ART, PET_COMPUTER, PET_DROP, PET_FOCUS, PET_NOTEPAD, PET_SCREEN } from "./art.ts";
 import { coverPlacement, mapRect, restingBox } from "./cover.ts";
 
 const CASSETTE_REST_RATIO = (CASSETTE_REST.w * PET_ART.width) / (CASSETTE_REST.h * PET_ART.height);
@@ -96,4 +96,43 @@ test("overlay boxes map through the same placement as the picture", () => {
   const p = coverPlacement(view(1440, 900), PET_ART, PET_FOCUS, PET_SCREEN);
   const b = mapRect(p, PET_SCREEN);
   assert.ok(Math.abs(b.width / p.width - PET_SCREEN.w) < 1e-9 && Math.abs((b.left - p.left) / p.width - PET_SCREEN.x) < 1e-9);
+});
+
+test("the drop target is the whole computer plus a little forgiveness, and stays clear of the resting tape at several sizes", () => {
+  for (const [w, h] of [[1440, 900], [1280, 720], [844, 390], [390, 844]] as const) {
+    const v = view(w, h);
+    const p = coverPlacement(v, PET_ART, PET_FOCUS, PET_SCREEN);
+    const drop = mapRect(p, PET_DROP);
+    const px = (fx: number, fy: number) => [p.left + (fx / 1672) * p.width, p.top + (fy / 941) * p.height] as const;
+    // Screen, keyboard, built-in cassette deck and the case's lower edge are all inside.
+    for (const [fx, fy] of [[826, 340], [970, 690], [570, 650], [800, 820]] as const) assert.ok(containsPoint(drop, ...px(fx, fy)), `${w}x${h}: (${fx}, ${fy}) is a valid drop`);
+    // A little forgiveness just outside the case counts; well away from it does not.
+    assert.ok(containsPoint(drop, ...px(365 - 12, 700)) && containsPoint(drop, ...px(1265 + 12, 700)));
+    assert.ok(!containsPoint(drop, ...px(100, 700)) && !containsPoint(drop, ...px(1440, 760)) && !containsPoint(drop, ...px(826, 60)), `${w}x${h}: clear of the lamp, the notepad and the wall`);
+    // Desktop-like crops keep the resting tape's centre outside it.
+    if (w >= 844 && h <= 900) {
+      const t = restingBox(p, CASSETTE_REST, v);
+      assert.ok(!containsPoint(drop, t.left + t.width / 2, t.top + t.height / 2), `${w}x${h}: the tape at rest is not over the target`);
+    }
+  }
+});
+
+test("a drop needs a meaningful drag that enters the target; releasing where the tape lies does not sign in", () => {
+  const W = 200;
+  // Released at once where it lay, even if that spot is over the computer (phone crop): no.
+  let i = startIntent(300, 300, true);
+  assert.equal(isIntentionalDrop(updateIntent(i, 302, 301, true), true, W), false, "a nudge in place");
+  // Started over the target, dragged a long way inside it without leaving: still no.
+  i = updateIntent(startIntent(300, 300, true), 450, 360, true);
+  assert.equal(isIntentionalDrop(i, true, W), false, "never entered from outside");
+  // Left and came back: yes.
+  i = updateIntent(updateIntent(updateIntent(startIntent(300, 300, true), 100, 300, false), 450, 300, true), 450, 300, true);
+  assert.equal(isIntentionalDrop(i, true, W), true);
+  // From outside into the target far enough: yes. Too short a move into it: no. Released outside: no.
+  i = updateIntent(updateIntent(startIntent(900, 700, false), 700, 650, false), 500, 600, true);
+  assert.equal(isIntentionalDrop(i, true, W), true);
+  assert.equal(isIntentionalDrop(updateIntent(updateIntent(startIntent(900, 700, false), 880, 700, true), 880, 700, true), true, W), false, "too short");
+  assert.equal(isIntentionalDrop(i, false, W), false, "released outside");
+  // A wider tape needs a longer pull.
+  assert.equal(isIntentionalDrop({ ...i, reach: 120 }, true, 300), false);
 });

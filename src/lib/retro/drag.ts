@@ -31,3 +31,37 @@ export function clampOffset(rest: Box, dx: number, dy: number, viewport: { width
     y: min(dy, -rest.top, viewport.height - rest.top - rest.height),
   };
 }
+
+/** A drop must come from at least this far (px, or `MIN_DRAG_WIDTHS` cassette widths if larger) from where the tape was picked up. */
+export const MIN_DRAG_PX = 56;
+export const MIN_DRAG_WIDTHS = 0.6;
+
+/**
+ * Tracks one drag to tell a deliberate drop on the computer from a tape that was merely nudged or
+ * released where it lay (on a phone's crop the resting tape can already sit on the computer's case).
+ * A drop counts only when the pointer is over the target now, has travelled a meaningful distance
+ * from the press, and has *entered* the target during this drag (it started outside, or left and came back).
+ */
+export interface DragIntent {
+  startX: number;
+  startY: number;
+  /** Farthest distance from the press point so far. */
+  reach: number;
+  /** Whether the pointer was over the target at the previous sample. */
+  wasOver: boolean;
+  /** Whether it has come into the target from outside during this drag. */
+  entered: boolean;
+}
+
+export function startIntent(x: number, y: number, over: boolean): DragIntent {
+  return { startX: x, startY: y, reach: 0, wasOver: over, entered: false };
+}
+
+export function updateIntent(i: DragIntent, x: number, y: number, over: boolean): DragIntent {
+  return { ...i, reach: Math.max(i.reach, Math.hypot(x - i.startX, y - i.startY)), wasOver: over, entered: i.entered || (over && !i.wasOver) };
+}
+
+/** True when letting go now (over the target) is an intentional sign-in. */
+export function isIntentionalDrop(i: DragIntent, over: boolean, cassetteWidth: number): boolean {
+  return over && i.entered && i.reach >= Math.max(MIN_DRAG_PX, cassetteWidth * MIN_DRAG_WIDTHS);
+}

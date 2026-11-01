@@ -14,11 +14,15 @@ import { RevealStack } from "./primitives";
 import { EnterRecap } from "./EnterRecap";
 import { ShareDialog } from "./ShareDialog";
 import { useFullscreen } from "./useFullscreen";
+import { useWide } from "./useWide";
 
 // `data-no-nav` marks areas with their own gestures (none right now), so they never turn story pages.
 const INTERACTIVE = "button, a, form, input, select, textarea, summary, [data-no-nav]";
 
 const accentVars = (id: CardId) => ({ "--a1": CARD_ACCENTS[id][0], "--a2": CARD_ACCENTS[id][1] }) as CSSProperties;
+
+/** Room for the print-out and the numbers side by side on the final card. */
+const SUMMARY_WIDE_WIDTH = 900;
 
 const two = (n: number) => String(n).padStart(2, "0");
 
@@ -38,6 +42,7 @@ export function Story({ recap, initialIndex = 0, gate = false }: { recap: Recap;
   // The "Enter recap" screen (after sign-in): a real click there is what lets the browser allow full screen.
   const [entering, setEntering] = useState(gate);
   const fs = useFullscreen();
+  const wide = useWide();
   // Which card the viewer has skipped the loading reveal on. Keyed by card so a new card always starts fresh.
   const [skippedId, setSkippedId] = useState<CardId | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
@@ -79,6 +84,26 @@ export function Story({ recap, initialIndex = 0, gate = false }: { recap: Recap;
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [go, id, sharing, entering]);
+
+  // Before the viewer enters, nothing of the recap is mounted: only a neutral opaque screen with the ready prompt, so no
+  // number, name or card can show through or be read from the page.
+  if (entering) {
+    return (
+      <MotionConfig reducedMotion="user">
+        <div data-enter-gate className="fixed inset-0 bg-[#0a0912] text-ph">
+          <EnterRecap
+            year={recap.year}
+            canFullscreen={fs.supported}
+            onEnter={(wantFullscreen) => {
+              // Called from the click itself, so the browser still counts it as a user gesture.
+              if (wantFullscreen) void fs.enter();
+              setEntering(false);
+            }}
+          />
+        </div>
+      </MotionConfig>
+    );
+  }
 
   return (
     <MotionConfig reducedMotion="user">
@@ -153,7 +178,7 @@ export function Story({ recap, initialIndex = 0, gate = false }: { recap: Recap;
         >
           {/* Keyed by card: moving on unmounts this one, which ends its reveal on the spot. */}
           <section key={id} aria-label={CARD_TITLES[id]} style={accentVars(id)} className="absolute inset-0">
-            <Fit>
+            <Fit maxWidth={id === "summary" && wide ? SUMMARY_WIDE_WIDTH : undefined}>
               <RevealStack skipped={skippedId === id} className="mx-auto flex w-full flex-col items-start gap-[min(1.5rem,2.2dvh)]">
                 <CardBody id={id} recap={recap} onShare={() => setSharing(true)} />
               </RevealStack>
@@ -197,18 +222,6 @@ export function Story({ recap, initialIndex = 0, gate = false }: { recap: Recap;
             )}
           </div>
         </div>
-
-        {entering && (
-          <EnterRecap
-            year={recap.year}
-            canFullscreen={fs.supported}
-            onEnter={(wantFullscreen) => {
-              // Called from the click itself, so the browser still counts it as a user gesture.
-              if (wantFullscreen) void fs.enter();
-              setEntering(false);
-            }}
-          />
-        )}
 
         {sharing && <ShareDialog key={id} card={id} title={CARD_TITLES[id]} onClose={() => setSharing(false)} />}
       </div>

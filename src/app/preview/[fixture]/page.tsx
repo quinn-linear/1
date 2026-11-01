@@ -5,25 +5,30 @@ import { ARCHETYPE_COPY } from "@/lib/stats/archetype";
 import type { ArchetypeId } from "@/lib/stats/types";
 import { FIXTURE_NAMES, fixtureRecap, type FixtureName } from "@/lib/fixtures";
 
+const PREVIEW_SERVICES = ["github", "slack", "figma", "sentry", "zendesk", "intercom", "notion", "datadog", "pagerduty", "jira", "gitlab", "discord"];
+
 export const dynamic = "force-dynamic";
 
 /**
  * Layout-check route: renders the story from a built-in fixture (`full`,
- * `sparse`, `zero`, `long`), starting at `?card=<id>` (`?gate=1` shows the Enter recap screen, `?archetype=<id>` swaps the archetype). It exists only when the
+ * `sparse`, `zero`, `long`), starting at `?card=<id>` (`?gate=1` shows the Enter recap screen, `?services=<n>` and `?workspace=none` vary the integrations card, `?archetype=<id>` swaps the archetype). It exists only when the
  * server is started with `PREVIEW_FIXTURES=1`; otherwise it is a plain 404, so
  * production never exposes it. No account, token or Linear data is involved.
  */
-export default async function PreviewPage({ params, searchParams }: { params: Promise<{ fixture: string }>; searchParams: Promise<{ card?: string; gate?: string; archetype?: string }> }) {
+export default async function PreviewPage({ params, searchParams }: { params: Promise<{ fixture: string }>; searchParams: Promise<{ card?: string; gate?: string; archetype?: string; services?: string; workspace?: string }> }) {
   if (process.env.PREVIEW_FIXTURES !== "1") notFound();
   const { fixture } = await params;
   if (!FIXTURE_NAMES.includes(fixture as FixtureName)) notFound();
-  const { card, gate, archetype } = await searchParams;
+  const { card, gate, archetype, services, workspace } = await searchParams;
   // `?archetype=<id>` previews the other archetypes' art and copy on the same fixture data.
   const recap = fixtureRecap(fixture as FixtureName);
   if (archetype && archetype in ARCHETYPE_COPY) {
     const copy = ARCHETYPE_COPY[archetype as ArchetypeId];
     recap.archetype = { ...recap.archetype, id: archetype as ArchetypeId, name: copy.name, tagline: copy.tagline, description: copy.description };
   }
+  // `?services=<0-12>` sets how many integrations the card shows; `?workspace=none` leaves the workspace name out.
+  if (services !== undefined && /^\d{1,2}$/.test(services)) recap.integrations = { status: "ok", services: PREVIEW_SERVICES.slice(0, Number(services)) };
+  if (workspace === "none") recap.workspace = null;
   const start = Math.max(0, CARD_IDS.findIndex((id) => id === card));
   return <Story recap={recap} initialIndex={start} gate={gate === "1"} />;
 }
