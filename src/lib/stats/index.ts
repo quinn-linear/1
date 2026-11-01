@@ -4,7 +4,8 @@ import { LinearApiError, createLinearClient, paginate, type ClientOptions, type 
 import { paddedYearWindow } from "./time.ts";
 import type { PersonRef, WrappedStats } from "./types.ts";
 
-export type { WrappedStats } from "./types.ts";
+export type { Archetype, ArchetypeId, WrappedStats } from "./types.ts";
+export { classifyArchetype } from "./archetype.ts";
 export { LinearApiError } from "./linear.ts";
 
 /** The recap year; override per call to support other years. */
