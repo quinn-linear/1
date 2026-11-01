@@ -3,7 +3,11 @@
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { CARD_IDS, formatDay, monthName, plural, prettyService, type CardId, type Recap } from "@/lib/recap";
+import { daysInYear, sigil } from "@/lib/share/art";
+import { CARD_ACCENTS } from "@/lib/share/theme";
 import { SPARSE_NOTE, recapDensity } from "@/lib/sparse";
+import { AgeTrack, DayChain, Meter, MonthChart, Ring, YearSpark } from "./charts";
+import { HoloCard } from "./HoloCard";
 import { Avatar, Blurb, CountUp, Footnote, Headline, Huge, Kicker, Reveal, sunny } from "./primitives";
 
 export const CARD_TITLES: Record<CardId, string> = {
@@ -20,19 +24,10 @@ export const CARD_TITLES: Record<CardId, string> = {
   summary: "Summary",
 };
 
-/** Full-bleed background gradient per card. */
-export const CARD_BACKGROUNDS: Record<CardId, string> = {
-  intro: "from-fuchsia-700 via-indigo-800 to-slate-950",
-  total: "from-orange-500 via-rose-600 to-purple-900",
-  archetype: "from-violet-600 via-fuchsia-700 to-slate-950",
-  peak: "from-emerald-500 via-teal-700 to-slate-950",
-  streak: "from-amber-400 via-orange-600 to-red-900",
-  project: "from-sky-500 via-indigo-700 to-slate-950",
-  collaborator: "from-pink-500 via-rose-700 to-indigo-950",
-  integrations: "from-cyan-500 via-blue-800 to-slate-950",
-  "got-away": "from-slate-600 via-zinc-800 to-black",
-  label: "from-lime-400 via-emerald-700 to-slate-950",
-  summary: "from-fuchsia-600 via-purple-800 to-indigo-950",
+/** "12%" / "<1%": share of closed issues, rounded honestly. */
+const share = (part: number, whole: number) => {
+  const pct = (part / whole) * 100;
+  return pct > 0 && pct < 1 ? "<1%" : `${Math.round(pct)}%`;
 };
 
 function Missing({ children }: { children: ReactNode }) {
@@ -49,10 +44,13 @@ function Intro({ r }: { r: Recap }) {
         <Kicker>Hey {r.viewer.name}</Kicker>
       </Reveal>
       <Reveal>
-        <h1 className="text-[17vw] font-black leading-[0.85] tracking-tighter sm:text-[9rem]">
+        <h1 className="text-[16vw] font-semibold leading-[0.88] tracking-[-0.055em] sm:text-[8.5rem]">
           Your {r.year}
           <span className={`block ${sunny}`}>in Linear</span>
         </h1>
+      </Reveal>
+      <Reveal>
+        <YearSpark monthly={r.monthly} />
       </Reveal>
       <Reveal>
         <Blurb>Tap to see what you shipped. Snacks optional.</Blurb>
@@ -72,19 +70,19 @@ function Total({ r }: { r: Recap }) {
       <Reveal>
         <Kicker>You closed</Kicker>
       </Reveal>
-      <Reveal>
-        <Huge className={sunny}>
-          <CountUp to={r.totalClosed} />
-        </Huge>
-      </Reveal>
-      <Reveal>
-        <Headline>{r.totalClosed === 1 ? "issue." : "issues."}</Headline>
+      <Reveal className="w-full">
+        <Ring value={r.activeDays / daysInYear(r.year)} label={`${plural(r.totalClosed, "issue")} closed on ${plural(r.activeDays, "active day")}, out of ${daysInYear(r.year)} days in ${r.year}`} size={320}>
+          <Huge className={`text-[17vw] sm:text-[6.5rem] ${sunny}`}>
+            <CountUp to={r.totalClosed} />
+          </Huge>
+          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.25em] text-white/50">{r.totalClosed === 1 ? "issue" : "issues"}</p>
+        </Ring>
       </Reveal>
       <Reveal>
         <Blurb>
           {r.totalClosed === 0
             ? `Nothing closed in ${r.year} yet. The backlog is nervous.`
-            : `Across ${plural(r.activeDays, "active day")}. That's a lot of green checkmarks.`}
+            : `The ring is ${plural(r.activeDays, "active day")} out of ${daysInYear(r.year)}. That's a lot of green checkmarks.`}
         </Blurb>
       </Reveal>
       {r.truncated && <Footnote>Linear returned more issues than we fetch, so this may be an undercount.</Footnote>}
@@ -98,11 +96,16 @@ function Archetype({ r }: { r: Recap }) {
       <Reveal>
         <Kicker>Your archetype</Kicker>
       </Reveal>
-      <Reveal>
-        <Headline className={`text-[16vw] sm:text-8xl ${sunny}`}>{r.archetype.name}</Headline>
+      <Reveal className="mx-auto">
+        <motion.div aria-hidden className="h-44 w-44 sm:h-60 sm:w-60" animate={{ rotate: 360 }} transition={{ duration: 90, ease: "linear", repeat: Infinity }}>
+          <div className="h-full w-full drop-shadow-[0_0_30px_var(--a1)] [&>svg]:h-full [&>svg]:w-full">{sigil(r.archetype.id, 240, CARD_ACCENTS.archetype, "arc-sigil")}</div>
+        </motion.div>
       </Reveal>
       <Reveal>
-        <p className="text-2xl font-extrabold sm:text-4xl">{r.archetype.tagline}</p>
+        <Headline className={`text-[15vw] sm:text-8xl ${sunny}`}>{r.archetype.name}</Headline>
+      </Reveal>
+      <Reveal>
+        <p className="text-xl font-medium tracking-tight text-white/90 sm:text-3xl">{r.archetype.tagline}</p>
       </Reveal>
       <Reveal>
         <Blurb>{r.archetype.description}</Blurb>
@@ -113,9 +116,7 @@ function Archetype({ r }: { r: Recap }) {
 }
 
 function Peak({ r }: { r: Recap }) {
-  const max = Math.max(...r.monthly.map((m) => m.count), 1);
-  const peak = r.peakMonth?.month;
-  const label = r.monthly.map((m) => `${monthName(m.month, true)} ${m.count}`).join(", ");
+  const peak = r.peakMonth ? r.peakMonth.month - 1 : null;
   return (
     <>
       <Reveal>
@@ -127,7 +128,7 @@ function Peak({ r }: { r: Recap }) {
             <Headline className={sunny}>{monthName(r.peakMonth.month)}</Headline>
           </Reveal>
           <Reveal>
-            <Blurb>{plural(r.peakMonth.count, "issue")} closed. You were on one.</Blurb>
+            <Blurb>{plural(r.peakMonth.count, "issue")} closed. Drag across the chart to explore every month.</Blurb>
           </Reveal>
         </>
       ) : (
@@ -136,23 +137,7 @@ function Peak({ r }: { r: Recap }) {
         </Reveal>
       )}
       <Reveal className="w-full">
-        <div role="img" aria-label={`Issues closed per month: ${label}`} className="flex h-52 w-full items-end gap-1.5 sm:h-64 sm:gap-2">
-          {r.monthly.map((m, i) => {
-            const isPeak = m.month === peak;
-            return (
-              <div key={m.month} className="flex h-full flex-1 flex-col items-center justify-end gap-1" aria-hidden>
-                {isPeak && <span className="text-xs font-black sm:text-base">{m.count}</span>}
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: `${Math.max((m.count / max) * 100, m.count > 0 ? 6 : 2)}%` }}
-                  transition={{ delay: 0.5 + i * 0.05, type: "spring", stiffness: 120, damping: 16 }}
-                  className={`w-full rounded-t-md ${isPeak ? "bg-gradient-to-t from-yellow-300 to-pink-300 shadow-[0_0_30px_rgba(253,224,71,0.7)]" : "bg-white/35"}`}
-                />
-                <span className={`text-[10px] font-bold sm:text-xs ${isPeak ? "text-yellow-200" : "text-white/70"}`}>{monthName(m.month, true)[0]}</span>
-              </div>
-            );
-          })}
-        </div>
+        <MonthChart monthly={r.monthly} peak={peak ?? null} />
       </Reveal>
     </>
   );
@@ -174,6 +159,9 @@ function Streak({ r }: { r: Recap }) {
           </Reveal>
           <Reveal>
             <Headline className={sunny}>{s.days === 1 ? "day in a row." : "days in a row."}</Headline>
+          </Reveal>
+          <Reveal className="w-full">
+            <DayChain days={s.days} label={`${plural(s.days, "day")} in a row, ${s.days === 1 ? formatDay(s.start) : `${formatDay(s.start)} to ${formatDay(s.end)}`}`} />
           </Reveal>
           <Reveal>
             <Blurb>
@@ -207,6 +195,15 @@ function Project({ r }: { r: Recap }) {
               <CountUp to={p.closedCount} />
             </Huge>
           </Reveal>
+          {r.totalClosed > 0 && (
+            <Reveal className="w-full">
+              <Meter
+                value={p.closedCount / r.totalClosed}
+                label={`${p.closedCount} of your ${r.totalClosed} closed issues`}
+                caption={`${share(p.closedCount, r.totalClosed)} of everything you closed`}
+              />
+            </Reveal>
+          )}
           <Reveal>
             <Blurb>{p.closedCount === 1 ? "issue" : "issues"} closed here. You basically live in it.</Blurb>
           </Reveal>
@@ -229,8 +226,14 @@ function Collaborator({ r }: { r: Recap }) {
       </Reveal>
       {c ? (
         <>
-          <Reveal>
-            <Avatar name={c.name} src={c.avatarUrl} size="h-32 w-32" />
+          <Reveal className="w-full">
+            <div className="flex items-center gap-3" aria-hidden>
+              <Avatar name={r.viewer.name} src={r.viewer.avatarUrl} size="h-20 w-20 sm:h-24 sm:w-24" />
+              <div className="relative h-px flex-1 overflow-visible bg-gradient-to-r from-[var(--a1)] to-[var(--a2)]">
+                <motion.span className="absolute -top-[3px] h-[7px] w-[7px] rounded-full bg-white shadow-[0_0_14px_var(--a1)]" animate={{ left: ["0%", "100%", "0%"] }} transition={{ duration: 4, ease: "easeInOut", repeat: Infinity }} />
+              </div>
+              <Avatar name={c.name} src={c.avatarUrl} size="h-20 w-20 sm:h-24 sm:w-24" />
+            </div>
           </Reveal>
           <Reveal>
             <Headline className={`break-words ${sunny}`}>{c.name}</Headline>
@@ -265,8 +268,8 @@ function Integrations({ r }: { r: Recap }) {
       {status === "ok" && services.length > 0 ? (
         <>
           <Reveal className="relative mx-auto my-2 h-72 w-72 sm:h-96 sm:w-96">
-            <div aria-hidden className="absolute inset-[12%] rounded-full border border-dashed border-white/40" />
-            <div className="absolute left-1/2 top-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/20 text-center text-xs font-black uppercase leading-tight shadow-[0_0_60px_rgba(255,255,255,0.35)] backdrop-blur">
+            <div aria-hidden className="absolute inset-[12%] rounded-full border border-dashed border-white/25" />
+            <div className="absolute left-1/2 top-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full glass text-center font-mono text-[10px] font-medium uppercase leading-tight tracking-widest shadow-[0_0_70px_-10px_var(--a1)]">
               Your
               <br />
               workspace
@@ -282,7 +285,7 @@ function Integrations({ r }: { r: Recap }) {
                 return (
                   <li key={s} className="absolute left-1/2 top-1/2 h-0 w-0" style={{ transform: `rotate(${angle}deg) translateY(-8.5rem)` }}>
                     <motion.span
-                      className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-extrabold text-indigo-900 shadow-lg sm:text-sm"
+                      className="glass absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium text-white shadow-[0_0_24px_-6px_var(--a1)] sm:text-sm"
                       style={{ rotate: -angle }}
                       animate={{ rotate: [-angle, -angle - 360] }}
                       transition={{ duration: 60, ease: "linear", repeat: Infinity }}
@@ -327,13 +330,16 @@ function GotAway({ r }: { r: Recap }) {
       {o ? (
         <>
           <Reveal>
-            <p className="font-mono text-xl font-bold text-white/70 sm:text-3xl">{o.identifier}</p>
-            <Headline className={`mt-2 break-words text-[10vw] sm:text-6xl ${sunny}`}>{o.title}</Headline>
+            <p className="font-mono text-lg font-medium text-white/50 sm:text-2xl">{o.identifier}</p>
+            <Headline className={`mt-2 break-words text-[9vw] sm:text-6xl ${sunny}`}>{o.title}</Headline>
           </Reveal>
           <Reveal>
             <Huge className="text-[20vw] sm:text-[8rem]">
               <CountUp to={o.ageDays} />
             </Huge>
+          </Reveal>
+          <Reveal className="w-full">
+            <AgeTrack days={o.ageDays} label={`Open for ${plural(o.ageDays, "day")}`} />
           </Reveal>
           <Reveal>
             <Blurb>{o.ageDays === 1 ? "day" : "days"} open, assigned to you since {formatDay(o.createdAt, true)}. Maybe this is the year.</Blurb>
@@ -363,6 +369,11 @@ function Label({ r }: { r: Recap }) {
           <Reveal>
             <Headline className={`break-words text-[16vw] sm:text-8xl ${sunny}`}>{l.name}</Headline>
           </Reveal>
+          {r.totalClosed > 0 && (
+            <Reveal className="w-full">
+              <Meter value={l.count / r.totalClosed} label={`${l.count} of your ${r.totalClosed} closed issues`} caption={`On ${share(l.count, r.totalClosed)} of everything you closed`} />
+            </Reveal>
+          )}
           <Reveal>
             <Blurb>
               Stuck to {plural(l.count, "issue")} you closed. It&apos;s basically your personality.
@@ -378,12 +389,11 @@ function Label({ r }: { r: Recap }) {
   );
 }
 
-function Tile({ k, v, sub }: { k: string; v: string; sub?: string }) {
+function Row({ k, v }: { k: string; v: string }) {
   return (
-    <div className="rounded-2xl bg-white/12 p-3 ring-1 ring-white/20 backdrop-blur sm:p-4">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-white/65 sm:text-xs">{k}</p>
-      <p className="mt-1 break-words text-lg font-black leading-tight sm:text-2xl">{v}</p>
-      {sub && <p className="text-xs font-medium text-white/70">{sub}</p>}
+    <div className="flex items-baseline justify-between gap-4 border-b border-white/10 py-1.5 last:border-0">
+      <dt className="font-mono text-[11px] uppercase tracking-widest text-white/45">{k}</dt>
+      <dd className="min-w-0 break-words text-right text-sm font-medium">{v}</dd>
     </div>
   );
 }
@@ -391,35 +401,43 @@ function Tile({ k, v, sub }: { k: string; v: string; sub?: string }) {
 function Summary({ r }: { r: Recap }) {
   const none = "n/a";
   return (
-    <>
+    <div className="flex w-full flex-col items-center gap-4">
       <Reveal>
         <Kicker>
           {r.viewer.name}&apos;s {r.year} in Linear
         </Kicker>
       </Reveal>
+      <HoloCard recap={r} />
       <Reveal>
-        <Headline className={sunny}>{plural(r.totalClosed, "issue")} closed.</Headline>
+        <p className="text-center text-xs text-white/45">Tilt it, or touch and drag. Download it from Share.</p>
       </Reveal>
-      <Reveal className="w-full">
-        <div className="grid w-full grid-cols-2 gap-2.5 sm:gap-3">
-          <Tile k="Archetype" v={r.archetype.name} />
-          <Tile k="Peak month" v={r.peakMonth ? monthName(r.peakMonth.month) : none} sub={r.peakMonth ? plural(r.peakMonth.count, "issue") : undefined} />
-          <Tile k="Longest streak" v={r.longestStreak ? plural(r.longestStreak.days, "day") : none} />
-          <Tile k="Active days" v={r.activeDays.toLocaleString("en-US")} />
-          <Tile k="Biggest project" v={r.biggestProject?.name ?? none} sub={r.biggestProject ? plural(r.biggestProject.closedCount, "issue") : undefined} />
-          <Tile k="Top collaborator" v={r.topCollaborator?.name ?? none} />
-          <Tile k="Label of the year" v={r.labelOfYear?.name ?? none} />
-          <Tile k="One that got away" v={r.oldestOpenIssue?.identifier ?? none} sub={r.oldestOpenIssue ? plural(r.oldestOpenIssue.ageDays, "day") + " open" : undefined} />
-        </div>
+      <Reveal className="w-full max-w-sm">
+        <details className="glass rounded-2xl px-4 py-2 text-left" data-no-nav>
+          <summary className="cursor-pointer py-1 font-mono text-[11px] uppercase tracking-widest text-white/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            All your numbers
+          </summary>
+          <dl className="mt-1">
+            <Row k="Issues closed" v={r.totalClosed.toLocaleString("en-US")} />
+            <Row k="Archetype" v={r.archetype.name} />
+            <Row k="Peak month" v={r.peakMonth ? `${monthName(r.peakMonth.month)} (${plural(r.peakMonth.count, "issue")})` : none} />
+            <Row k="Longest streak" v={r.longestStreak ? plural(r.longestStreak.days, "day") : none} />
+            <Row k="Active days" v={r.activeDays.toLocaleString("en-US")} />
+            <Row k="Biggest project" v={r.biggestProject ? `${r.biggestProject.name} (${r.biggestProject.closedCount})` : none} />
+            <Row k="Top collaborator" v={r.topCollaborator?.name ?? none} />
+            <Row k="Label of the year" v={r.labelOfYear?.name ?? none} />
+            <Row k="One that got away" v={r.oldestOpenIssue ? `${r.oldestOpenIssue.identifier}, ${plural(r.oldestOpenIssue.ageDays, "day")} open` : none} />
+          </dl>
+        </details>
       </Reveal>
+      {r.truncated && <Footnote>Linear returned more issues than we fetch, so counts may be undercounts.</Footnote>}
       <Reveal>
         <form action="/api/auth/logout" method="post">
-          <button type="submit" className="rounded-full border border-white/40 px-5 py-2 text-sm font-bold text-white/90 transition hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+          <button type="submit" className="glass rounded-full px-5 py-2 text-sm font-medium text-white/80 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
             Sign out
           </button>
         </form>
       </Reveal>
-    </>
+    </div>
   );
 }
 

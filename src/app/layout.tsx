@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { resolveSiteOrigin } from "@/lib/site";
 import "./globals.css";
 
 const geist = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 const TITLE = "Linear Wrapped 2026";
 const DESCRIPTION = "Your year in Linear, wrapped. Sign in with read-only access to see what you closed, your work archetype, your peak month and more.";
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0b14",
+  themeColor: "#07080b",
 };
 
 export default function RootLayout({
@@ -27,7 +28,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geist.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>{children}</body>
     </html>
   );
 }

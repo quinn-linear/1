@@ -1,7 +1,7 @@
 /** "Sign in with Linear": links to the read-only OAuth start route. */
 export function SignInButton({ href }: { href: string }) {
   const className =
-    "group inline-flex w-full items-center justify-center gap-3 rounded-full bg-white px-8 py-5 text-lg font-bold text-black shadow-[0_0_60px_-10px_rgba(167,139,250,0.9)] transition sm:w-auto";
+    "group inline-flex w-full items-center justify-center gap-3 rounded-full bg-white px-8 py-4 text-base font-semibold text-black shadow-[0_0_60px_-12px_rgba(167,139,250,0.9)] transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white sm:w-auto";
 
   const content = (
     <>
@@ -15,7 +15,7 @@ export function SignInButton({ href }: { href: string }) {
       <a href={href} className={`${className} hover:scale-105 active:scale-95`}>
         {content}
       </a>
-      <p className="text-sm text-white/60">Read-only access, nothing stored.</p>
+      <p className="text-sm text-white/50">Read-only access, nothing stored.</p>
     </div>
   );
 }

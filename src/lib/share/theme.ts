@@ -1,19 +1,25 @@
 import type { CardId } from "../recap.ts";
 
-/** Hex versions of the story card gradients (`CARD_BACKGROUNDS`), since the image renderer can't use Tailwind classes. */
-export const CARD_GRADIENTS: Record<CardId, [string, string, string]> = {
-  intro: ["#a21caf", "#3730a3", "#020617"],
-  total: ["#f97316", "#e11d48", "#581c87"],
-  archetype: ["#7c3aed", "#a21caf", "#020617"],
-  peak: ["#10b981", "#0f766e", "#020617"],
-  streak: ["#fbbf24", "#ea580c", "#7f1d1d"],
-  project: ["#0ea5e9", "#4338ca", "#020617"],
-  collaborator: ["#ec4899", "#be123c", "#1e1b4b"],
-  integrations: ["#06b6d4", "#1e40af", "#020617"],
-  "got-away": ["#475569", "#27272a", "#000000"],
-  label: ["#a3e635", "#047857", "#020617"],
-  summary: ["#c026d3", "#6b21a8", "#1e1b4b"],
+/**
+ * Per-card accent pair, shared by the story UI (CSS variables) and the share
+ * images (inline styles) so both stay one palette. Surfaces are near-black;
+ * the accent is the only color that changes from card to card.
+ */
+export const CARD_ACCENTS: Record<CardId, [string, string]> = {
+  intro: ["#8b8bff", "#c084fc"],
+  total: ["#ff8a5b", "#ff4d8d"],
+  archetype: ["#a78bfa", "#f0abfc"],
+  peak: ["#34d399", "#22d3ee"],
+  streak: ["#fbbf24", "#fb7185"],
+  project: ["#38bdf8", "#818cf8"],
+  collaborator: ["#f472b6", "#fb923c"],
+  integrations: ["#22d3ee", "#60a5fa"],
+  "got-away": ["#94a3b8", "#e2e8f0"],
+  label: ["#a3e635", "#2dd4bf"],
+  summary: ["#c4b5fd", "#67e8f9"],
 };
+
+export const SURFACE = "#07080b";
 
 export const IMAGE_FORMATS = {
   story: { width: 1080, height: 1920 },

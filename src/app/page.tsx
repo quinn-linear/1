@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import { SignInButton } from "@/components/SignInButton";
 import { START_PATH } from "@/lib/auth";
 
@@ -17,10 +18,10 @@ export const metadata: Metadata = {
 };
 
 const teasers = [
-  { label: "Issues closed", value: "???", color: "from-fuchsia-500 to-pink-500" },
-  { label: "Work archetype", value: "You'll see", color: "from-violet-500 to-indigo-500" },
-  { label: "Peak month", value: "Spoilers", color: "from-amber-400 to-orange-500" },
-  { label: "Longest streak", value: "Days?!", color: "from-emerald-400 to-cyan-500" },
+  { label: "Issues closed", value: "???", a: "#ff8a5b", b: "#ff4d8d" },
+  { label: "Work archetype", value: "You'll see", a: "#a78bfa", b: "#f0abfc" },
+  { label: "Peak month", value: "Spoilers", a: "#34d399", b: "#22d3ee" },
+  { label: "Longest streak", value: "Days?!", a: "#fbbf24", b: "#fb7185" },
 ];
 
 const errors: Record<string, string> = {
@@ -39,35 +40,33 @@ export default async function Home({
   const errorMessage = error ? errors[error] : undefined;
 
   return (
-    <main className="relative isolate min-h-dvh overflow-hidden">
+    <main className="relative isolate min-h-dvh overflow-hidden" style={{ "--a1": "#8b8bff", "--a2": "#c084fc" } as CSSProperties}>
       <div aria-hidden className="absolute inset-0 -z-10">
-        <div className="animate-drift absolute -left-1/4 -top-1/4 h-[70vmax] w-[70vmax] rounded-full bg-fuchsia-600/60 blur-[120px]" />
-        <div className="animate-drift absolute -bottom-1/4 -right-1/4 h-[70vmax] w-[70vmax] rounded-full bg-indigo-600/60 blur-[120px] [animation-delay:-7s]" />
-        <div className="absolute left-1/3 top-1/2 h-[40vmax] w-[40vmax] rounded-full bg-orange-500/30 blur-[120px]" />
+        <div className="animate-drift absolute -left-1/4 -top-1/3 h-[70vmax] w-[70vmax] rounded-full bg-indigo-500/25 blur-[140px]" />
+        <div className="animate-drift absolute -bottom-1/3 -right-1/4 h-[60vmax] w-[60vmax] rounded-full bg-fuchsia-500/15 blur-[140px] [animation-delay:-7s]" />
+        <div className="grid-fade absolute inset-0" />
+        <div className="grain absolute inset-0" />
       </div>
 
       <section className="mx-auto flex min-h-dvh max-w-5xl flex-col justify-between px-6 pb-10 pt-8 sm:px-10">
-        <header className="animate-rise flex items-center justify-between text-sm font-semibold uppercase tracking-widest text-white/80">
+        <header className="animate-rise flex items-center justify-between font-mono text-xs uppercase tracking-[0.28em] text-white/60">
           <span>Linear Wrapped</span>
-          <span className="rounded-full border border-white/30 px-3 py-1">{YEAR}</span>
+          <span className="glass rounded-full px-3 py-1">{YEAR}</span>
         </header>
 
         <div className="py-12">
-          <h1 className="animate-rise text-[22vw] font-black leading-[0.85] tracking-tighter sm:text-[10rem]">
+          <h1 className="animate-rise text-[20vw] font-semibold leading-[0.86] tracking-[-0.06em] sm:text-[9.5rem]">
             <span className="block">Your</span>
-            <span className="block bg-gradient-to-r from-yellow-200 via-pink-300 to-cyan-200 bg-clip-text text-transparent">
-              {YEAR}
-            </span>
+            <span className="accent-text animate-sheen block bg-[linear-gradient(100deg,#67e8f9,#c4b5fd,#f0abfc,#fde68a,#86efac,#67e8f9)]">{YEAR}</span>
             <span className="block">in Linear.</span>
           </h1>
-          <p className="animate-rise mt-8 max-w-md text-xl font-medium text-white/85 [animation-delay:150ms] sm:text-2xl">
-            Every issue you crushed, every streak you kept alive. Wrapped up and
-            ready to flex.
+          <p className="animate-rise mt-8 max-w-md text-lg leading-relaxed text-white/60 [animation-delay:150ms] sm:text-xl">
+            Every issue you crushed, every streak you kept alive. Wrapped up in a holographic card you can flex.
           </p>
           <div className="animate-rise mt-10 [animation-delay:300ms]">
             <SignInButton href={START_PATH} />
             {errorMessage && (
-              <p role="alert" className="mt-4 text-sm font-semibold text-yellow-200">
+              <p role="alert" className="mt-4 text-sm font-medium text-amber-200">
                 {errorMessage}
               </p>
             )}
@@ -75,21 +74,16 @@ export default async function Home({
         </div>
 
         <div className="animate-rise [animation-delay:450ms]">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/60">
-            Sneak peek
-          </p>
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.28em] text-white/45">Sneak peek</p>
           <ul className="-mx-6 flex snap-x gap-3 overflow-x-auto px-6 pb-2 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0">
             {teasers.map((t, i) => (
               <li
                 key={t.label}
-                className={`aspect-[3/4] w-40 shrink-0 snap-start rounded-3xl bg-gradient-to-br ${t.color} p-4 shadow-xl sm:w-auto ${
-                  i % 2 ? "sm:translate-y-4 sm:-rotate-2" : "sm:rotate-2"
-                }`}
+                className={`glass relative aspect-[3/4] w-40 shrink-0 snap-start overflow-hidden rounded-3xl p-4 sm:w-auto ${i % 2 ? "sm:translate-y-4" : ""}`}
               >
-                <p className="text-xs font-bold uppercase tracking-wider text-black/70">
-                  {t.label}
-                </p>
-                <p className="mt-6 text-4xl font-black leading-none tracking-tight text-black">
+                <div aria-hidden className="absolute -right-10 -top-10 h-36 w-36 rounded-full opacity-40 blur-3xl" style={{ backgroundImage: `linear-gradient(135deg, ${t.a}, ${t.b})` }} />
+                <p className="relative font-mono text-[10px] uppercase tracking-[0.2em] text-white/55">{t.label}</p>
+                <p className="relative mt-6 text-3xl font-semibold leading-none tracking-[-0.04em]" style={{ color: t.a }}>
                   {t.value}
                 </p>
               </li>

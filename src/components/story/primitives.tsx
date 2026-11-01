@@ -23,26 +23,34 @@ export function Reveal({ children, className }: { children: ReactNode; className
 }
 
 export function Kicker({ children }: { children: ReactNode }) {
-  return <p className="text-sm font-bold uppercase tracking-[0.25em] text-white/75 sm:text-base">{children}</p>;
+  return (
+    <p className="flex items-center gap-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.28em] text-white/60 sm:text-xs">
+      <span aria-hidden className="relative flex h-1.5 w-1.5">
+        <span className="animate-pulse-ring absolute inset-0 rounded-full bg-[var(--a1)]" />
+        <span className="relative h-1.5 w-1.5 rounded-full bg-[var(--a1)] shadow-[0_0_10px_var(--a1)]" />
+      </span>
+      {children}
+    </p>
+  );
 }
 
 export function Huge({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <p className={`font-black leading-[0.85] tracking-tighter text-[28vw] sm:text-[12rem] ${className}`}>{children}</p>;
+  return <p className={`font-semibold leading-[0.82] tracking-[-0.06em] tabular-nums text-[28vw] sm:text-[12rem] ${className}`}>{children}</p>;
 }
 
 export function Headline({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <h2 className={`font-black leading-[0.9] tracking-tighter text-[13vw] sm:text-7xl ${className}`}>{children}</h2>;
+  return <h2 className={`font-semibold leading-[0.92] tracking-[-0.045em] text-[12vw] sm:text-7xl ${className}`}>{children}</h2>;
 }
 
 export function Blurb({ children }: { children: ReactNode }) {
-  return <p className="max-w-md text-lg font-medium text-white/85 sm:text-2xl">{children}</p>;
+  return <p className="max-w-md text-base leading-relaxed text-white/65 sm:text-xl">{children}</p>;
 }
 
 export function Footnote({ children }: { children: ReactNode }) {
-  return <p className="max-w-md text-xs font-medium text-white/65 sm:text-sm">{children}</p>;
+  return <p className="max-w-md border-l border-white/15 pl-3 text-xs leading-relaxed text-white/45 sm:text-sm">{children}</p>;
 }
 
-export const sunny = "bg-gradient-to-r from-yellow-200 via-pink-300 to-cyan-200 bg-clip-text text-transparent";
+export const sunny = "accent-text";
 
 /** Animates 0 -> `to`. Screen readers get the final value; reduced motion skips the count. */
 export function CountUp({ to, className }: { to: number; className?: string }) {
@@ -72,9 +80,9 @@ export function Avatar({ name, src, size = "h-28 w-28" }: { name: string; src: s
   return src ? (
     // Linear-hosted avatar URL; next/image would need a remote-host allowlist we can't verify.
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" referrerPolicy="no-referrer" className={`${size} rounded-full border-4 border-white/80 object-cover shadow-2xl`} />
+    <img src={src} alt="" referrerPolicy="no-referrer" className={`${size} rounded-full object-cover ring-2 ring-white/20 ring-offset-4 ring-offset-[#07080b] shadow-[0_0_50px_-8px_var(--a1)]`} />
   ) : (
-    <span aria-hidden className={`${size} flex items-center justify-center rounded-full border-4 border-white/80 bg-white/20 text-3xl font-black shadow-2xl`}>
+    <span aria-hidden className={`${size} flex items-center justify-center rounded-full glass text-3xl font-semibold ring-2 ring-white/20 ring-offset-4 ring-offset-[#07080b] shadow-[0_0_50px_-8px_var(--a1)]`}>
       {initials}
     </span>
   );
