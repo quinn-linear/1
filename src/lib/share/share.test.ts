@@ -61,7 +61,7 @@ test("each card only carries its own data", () => {
 
 test("disclosure flags name-bearing cards as sensitive", () => {
   const sensitive = all().filter((s) => disclosure(s).sensitive).map((s) => s.c).sort();
-  assert.deepEqual(sensitive, ["collaborator", "got-away", "integrations", "label", "project"]);
+  assert.deepEqual(sensitive, ["collaborator", "constellation", "got-away", "integrations", "label", "project"]);
   assert.ok(disclosure(buildSnapshot("got-away", recap())).items.join().includes("Fix the thing"));
   assert.equal(disclosure(buildSnapshot("project", recap({ biggestProject: null }))).sensitive, false);
 });

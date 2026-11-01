@@ -1,7 +1,7 @@
 import { cloneElement, createElement as h, type CSSProperties, type ReactElement } from "react";
 import { monthName } from "../recap.ts";
 import { ARCHETYPE_COPY } from "../stats/archetype.ts";
-import { daysInYear, ring, sigil, sparkles } from "./art.ts";
+import { constellation, daysInYear, ring, sigil, sparkles } from "./art.ts";
 import { describe, type CardCopy } from "./copy.ts";
 import type { Snapshot } from "./snapshot.ts";
 import { CARD_ACCENTS, IMAGE_FORMATS, SURFACE, type ImageFormat } from "./theme.ts";
@@ -87,7 +87,7 @@ function renderPlain(snapshot: Snapshot, format: ImageFormat): ReactElement {
   const [a, b] = CARD_ACCENTS[snapshot.c];
   const story = format === "story";
 
-  const bigSize = fit(k.big, copy.big ?? "", story ? 4 : 5);
+  const bigSize = fit(copy.stars ? Math.round(k.big * 0.5) : k.big, copy.big ?? "", story ? 4 : 5);
   const headlineSize = fit(k.headline, copy.headline, story ? 10 : 18, 0.3);
 
   return h(
@@ -122,6 +122,8 @@ function renderPlain(snapshot: Snapshot, format: ImageFormat): ReactElement {
       copy.pills ? pills(copy.pills, k) : null,
       copy.body ? text({ fontSize: fit(k.body, copy.body, story ? 80 : 110, 0.6), lineHeight: 1.25, opacity: 0.8, maxWidth: story ? 800 : 1000 }, copy.body) : null,
       copy.bars ? bars(copy.bars, k, a, b) : null,
+      copy.stars ? box({ alignSelf: "center" }, constellation(copy.stars, story ? 880 : 520, story ? 520 : 130, [a, b], "cn-share")) : null,
+      copy.rail ? rail(copy.rail, k, a, b, story ? 888 : 1088) : null,
     ),
     text({ fontSize: k.foot, opacity: 0.55, lineHeight: 1.3 }, copy.footnote ?? "Get yours: Linear Wrapped"),
   );
@@ -144,6 +146,44 @@ function bars(bs: NonNullable<CardCopy["bars"]>, k: Scale, a: string, b: string)
         },
       }),
     ),
+  );
+}
+
+/** A Jan-Dec line with quiet spans (dim), burst spans (accent) or a single marker. */
+function rail(spans: NonNullable<CardCopy["rail"]>, k: Scale, a: string, b: string, width: number) {
+  const bar = Math.max(10, Math.round(k.pill / 4));
+  const tall = bar * 4;
+  const px = (f: number) => Math.round(f * width);
+  return h(
+    "div",
+    { style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 16 } },
+    h(
+      "div",
+      { style: { display: "flex", position: "relative", width, height: tall } },
+      box({ position: "absolute", left: 0, top: (tall - bar) / 2, width, height: bar, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.12)" }),
+      ...spans.map((sp, i) =>
+        sp.tone === "mark"
+          ? cloneElement(
+              box({ position: "absolute", left: Math.min(px(sp.from), width - tall), top: 0, width: tall, height: tall, borderRadius: 999, backgroundColor: "#fff", boxShadow: `0 0 ${tall}px ${a}` }),
+              { key: i },
+            )
+          : cloneElement(
+              box({
+                position: "absolute",
+                left: px(sp.from),
+                top: sp.tone === "burst" ? 0 : (tall - bar) / 2,
+                width: Math.max(px(sp.to - sp.from), bar),
+                height: sp.tone === "burst" ? tall : bar,
+                borderRadius: 999,
+                ...(sp.tone === "burst"
+                  ? { backgroundImage: `linear-gradient(90deg, ${a}, ${b})` }
+                  : { border: "2px dashed rgba(255,255,255,0.45)" }),
+              }),
+              { key: i },
+            ),
+      ),
+    ),
+    box({ justifyContent: "space-between", width, fontSize: k.foot * 0.8, opacity: 0.5 }, text({}, "Jan"), text({}, "Dec")),
   );
 }
 

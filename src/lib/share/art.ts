@@ -99,3 +99,77 @@ export function sparkles(count: number, seed = 7): { x: number; y: number; s: nu
   const rnd = () => ((n = (n * 1664525 + 1013904223) >>> 0) / 0xffffffff);
   return Array.from({ length: count }, () => ({ x: rnd(), y: rnd(), s: 0.4 + rnd() * 1.1, o: 0.35 + rnd() * 0.65 }));
 }
+
+export interface Star {
+  /** Center as 0-1 fractions of the drawing box. */
+  x: number;
+  y: number;
+  /** Radius as a fraction of the box width. Area-proportional to the count (sqrt scale). */
+  r: number;
+}
+
+const STAR_MIN = 0.022;
+const STAR_MAX = 0.075;
+
+/**
+ * Deterministic star layout from real counts, biggest first. Size is the only
+ * encoded value: radius grows with the square root of the count, so area is
+ * proportional to closed issues. Position follows a golden-angle spiral by rank
+ * and carries no meaning. The web chart and the share image both use it.
+ */
+export function constellationLayout(values: number[]): Star[] {
+  const max = Math.max(...values, 1);
+  return values.map((v, i) => {
+    const angle = i * 2.399963 + 0.6;
+    const dist = i === 0 ? 0.04 : 0.17 + 0.27 * Math.sqrt(i / Math.max(values.length, 2));
+    return {
+      x: 0.5 + Math.cos(angle) * dist * 1.05,
+      y: 0.5 + Math.sin(angle) * dist * 0.95,
+      r: STAR_MIN + (STAR_MAX - STAR_MIN) * Math.sqrt(Math.max(v, 0) / max),
+    };
+  });
+}
+
+/** Each star links to its nearest bigger star: a simple, readable line figure. */
+export function constellationLinks(stars: Star[]): [number, number][] {
+  return stars.flatMap((s, i): [number, number][] => {
+    if (i === 0) return [];
+    let best = 0;
+    let bestD = Infinity;
+    for (let j = 0; j < i; j++) {
+      const d = (stars[j].x - s.x) ** 2 + (stars[j].y - s.y) ** 2;
+      if (d < bestD) [best, bestD] = [j, d];
+    }
+    return [[best, i]];
+  });
+}
+
+/** Static constellation for share images. `w` x `h` px; text-free, so it needs no fonts. */
+export function constellation(values: number[], w: number, hgt: number, [a, b]: [string, string], uid = "cn"): ReactElement {
+  const stars = constellationLayout(values);
+  const px = (s: Star) => [s.x * w, s.y * hgt, s.r * w] as const;
+  return h(
+    "svg",
+    { width: w, height: hgt, viewBox: `0 0 ${w} ${hgt}`, xmlns: "http://www.w3.org/2000/svg" },
+    h(
+      "defs",
+      null,
+      h("radialGradient", { id: uid }, h("stop", { offset: "0", stopColor: "#fff" }), h("stop", { offset: "0.45", stopColor: a }), h("stop", { offset: "1", stopColor: b, stopOpacity: 0 })),
+    ),
+    ...constellationLinks(stars).map(([i, j]) => {
+      const [x1, y1] = px(stars[i]);
+      const [x2, y2] = px(stars[j]);
+      return h("line", { key: `l${i}-${j}`, x1, y1, x2, y2, stroke: "#fff", strokeOpacity: 0.28, strokeWidth: Math.max(1.5, w * 0.002) });
+    }),
+    ...stars.map((s, i) => {
+      const [cx, cy, r] = px(s);
+      return h(
+        "g",
+        { key: `s${i}` },
+        h("circle", { cx, cy, r: r * 2.4, fill: `url(#${uid})`, fillOpacity: 0.35 }),
+        h("circle", { cx, cy, r, fill: `url(#${uid})` }),
+        h("circle", { cx, cy, r: r * 0.32, fill: "#fff" }),
+      );
+    }),
+  );
+}

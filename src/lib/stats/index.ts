@@ -15,7 +15,7 @@ const PAGE_SIZE = 50;
 const MAX_PAGES = 100;
 
 const USER_FIELDS = "id name displayName avatarUrl";
-const ISSUE_FIELDS = `id completedAt project { id name } labels(first: 20) { nodes { id name } }
+const ISSUE_FIELDS = `id title completedAt project { id name } labels(first: 20) { nodes { id name } }
   creator { ${USER_FIELDS} } assignee { ${USER_FIELDS} }`;
 
 const VIEWER_QUERY = `query { viewer { ${USER_FIELDS} timezone } organization { name } }`;
