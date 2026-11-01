@@ -7,7 +7,7 @@ import { buildShareLink } from "./link.ts";
 import {
   MAX_NAME, MAX_TITLE, MAX_TOKEN_LENGTH, buildSnapshot, cleanText, decodeToken, encodeSnapshot, parseSnapshot, type Snapshot,
 } from "./snapshot.ts";
-import { IMAGE_VERSION, imageQuery, parseFormat } from "./theme.ts";
+import { IMAGE_VERSION, LEGACY_IMAGE_VERSIONS, imageCacheControl, imageQuery, isAcceptedVersion, parseFormat } from "./theme.ts";
 
 const SECRET = "test-secret";
 const person = { id: "u-secret-1", name: "ada", displayName: "Ada L", avatarUrl: "https://cdn.example/avatar-secret.png" };
@@ -220,12 +220,28 @@ test("summary token is design-independent, so image URLs must carry the design v
   assert.ok(link.storyImagePath.endsWith(`r=${IMAGE_VERSION}`) && link.wideImagePath.endsWith(`r=${IMAGE_VERSION}`));
 });
 
-test("summary renders the holographic card, not the plain layout", async () => {
+test("summary renders the floppy disk collectible, not the plain layout", async () => {
   const { renderCard } = await import("./image.ts");
   const snap = all().find((s) => s.c === "summary")!;
   for (const f of ["story", "og"] as const) {
     const json = JSON.stringify(renderCard(snap, f));
-    assert.match(json, /repeating-linear-gradient/, `${f} foil`);
-    assert.match(json, /holo-sigil/, `${f} sigil`);
+    assert.match(json, /repeating-linear-gradient/, `${f} scanlines`);
+    assert.match(json, /#ff6ec7/, `${f} holographic foil sticker`);
+    assert.match(json, /disk-sigil/, `${f} sigil`);
+    assert.match(json, /System report/, `${f} report label`);
   }
+});
+
+test("the retro redesign bumps the image version and keeps old signed links working", () => {
+  assert.equal(IMAGE_VERSION, "pet1");
+  assert.ok(!LEGACY_IMAGE_VERSIONS.includes(IMAGE_VERSION));
+  // Links minted before versioning (no r) and under the previous holographic design (r=holo2) still resolve.
+  for (const ok of [null, "pet1", "holo2"]) assert.ok(isAcceptedVersion(ok), String(ok));
+  for (const bad of ["", "holo3", "PET1", "pet1&x=1", "../pet1"]) assert.ok(!isAcceptedVersion(bad), bad);
+  // Only the current design is cached forever; legacy and unversioned URLs revalidate.
+  assert.match(imageCacheControl("pet1"), /immutable/);
+  for (const old of [null, "holo2"]) assert.doesNotMatch(imageCacheControl(old), /immutable/);
+  // The token itself is untouched by the redesign.
+  const snap = all().find((s) => s.c === "summary")!;
+  assert.match(buildShareLink(snap, SECRET).path, /^\/s\/[\w-]+\.[\w-]+$/);
 });

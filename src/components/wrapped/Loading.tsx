@@ -1,47 +1,32 @@
 import { LOADING_HINT } from "@/lib/sparse";
 import { LoadingMessage } from "./LoadingMessage";
 
-const stackCards = [
-  "from-indigo-400 to-fuchsia-400 [animation-delay:0s]",
-  "from-cyan-300 to-violet-400 [animation-delay:-0.4s]",
-  "from-amber-200 to-pink-400 [animation-delay:-0.8s]",
-];
-
 /**
- * Suspense fallback for `/wrapped` while stats are computed. It's a server
- * component with CSS-only motion (off under reduced motion) and an indeterminate
- * look on purpose: we don't know how far along the Linear API calls are, so no
- * progress bar or percentage is shown.
+ * Suspense fallback for `/wrapped` while stats are computed. A server component
+ * with CSS-only motion (off under reduced motion) and an indeterminate look on
+ * purpose: we don't know how far along the Linear API calls are, so no progress
+ * bar or percentage is shown. The disk drive spins up and the cursor blinks.
  */
 export function WrappedLoading({ year }: { year: number }) {
   return (
-    <main className="relative isolate flex min-h-dvh items-center overflow-hidden px-6 sm:px-10">
-      <div aria-hidden className="absolute inset-0 -z-10">
-        <div className="animate-drift absolute -left-1/4 -top-1/4 h-[60vmax] w-[60vmax] rounded-full bg-indigo-500/25 blur-[140px]" />
-        <div className="grid-fade absolute inset-0" />
-        <div className="grain absolute inset-0" />
-      </div>
-
-      <div role="status" className="mx-auto flex w-full max-w-2xl flex-col items-start gap-6">
-        <span className="sr-only">Wrapping your {year} in Linear. This can take a moment.</span>
-
-        <div aria-hidden className="relative h-32 w-24">
-          {stackCards.map((card, i) => (
-            <div
-              key={card}
-              className={`animate-wobble absolute inset-0 rounded-2xl bg-gradient-to-br opacity-80 shadow-[0_0_40px_-8px_rgba(167,139,250,0.7)] ring-1 ring-white/30 ${card}`}
-              style={{ transform: `rotate(${(i - 1) * 9}deg)` }}
-            />
-          ))}
+    <main className="desk flex min-h-dvh items-center px-2 py-4 sm:px-6">
+      <div className="case mx-auto w-full max-w-3xl rounded-[14px] p-3 sm:p-5">
+        <div className="crt relative min-h-[22rem] overflow-hidden rounded-[2.5%/3.5%] border-4 border-[#0d0c08] p-5 text-ph phosphor sm:p-8" role="status">
+          <span className="sr-only">Wrapping your {year} in Linear. This can take a moment.</span>
+          <div aria-hidden className="flex min-h-[19rem] flex-col justify-end gap-1 text-xl uppercase sm:text-3xl">
+            <p>LOAD &quot;LINEAR WRAPPED {year}&quot;,8</p>
+            <p>SEARCHING FOR YOUR YEAR</p>
+            <p className="text-amber">LOADING</p>
+            <LoadingMessage />
+            <p className="mt-3 max-w-md text-base normal-case text-ph/80 sm:text-xl">{LOADING_HINT}</p>
+            <p>
+              <span className="cursor-block" />
+            </p>
+          </div>
+          <div aria-hidden className="absolute right-5 top-5 flex items-center gap-2 text-base uppercase text-amber sm:text-xl">
+            Drive busy <span className="h-3 w-3 bg-[var(--led)] shadow-[0_0_8px_var(--led)]" />
+          </div>
         </div>
-
-        <h1 aria-hidden className="text-[12vw] font-semibold leading-[0.92] tracking-[-0.045em] sm:text-7xl">
-          Wrapping your {year}
-        </h1>
-        <LoadingMessage />
-        <p aria-hidden className="max-w-md text-sm text-white/45">
-          {LOADING_HINT}
-        </p>
       </div>
     </main>
   );

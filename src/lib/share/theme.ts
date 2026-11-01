@@ -1,30 +1,34 @@
 import type { CardId } from "../recap.ts";
+import { PALETTE } from "../retro/palette.ts";
 
 /**
- * Per-card accent pair, shared by the story UI (CSS variables) and the share
- * images (inline styles) so both stay one palette. Surfaces are near-black;
- * the accent is the only color that changes from card to card.
+ * Per-card accent pair (primary, secondary), shared by the story UI (CSS
+ * variables) and the share images (inline styles) so both stay one palette:
+ * a green or amber phosphor, never anything outside `PALETTE`.
  */
+const G = PALETTE.phosphor;
+const A = PALETTE.amber;
+
 export const CARD_ACCENTS: Record<CardId, [string, string]> = {
-  intro: ["#8b8bff", "#c084fc"],
-  total: ["#ff8a5b", "#ff4d8d"],
-  archetype: ["#a78bfa", "#f0abfc"],
-  peak: ["#34d399", "#22d3ee"],
-  streak: ["#fbbf24", "#fb7185"],
-  comeback: ["#f97316", "#facc15"],
-  project: ["#38bdf8", "#818cf8"],
-  constellation: ["#818cf8", "#e879f9"],
-  scope: ["#2dd4bf", "#a78bfa"],
-  collaborator: ["#f472b6", "#fb923c"],
-  integrations: ["#22d3ee", "#60a5fa"],
-  "got-away": ["#94a3b8", "#e2e8f0"],
-  label: ["#a3e635", "#2dd4bf"],
-  signature: ["#fb7185", "#fbbf24"],
-  "photo-finish": ["#e2e8f0", "#38bdf8"],
-  summary: ["#c4b5fd", "#67e8f9"],
+  intro: [G, A],
+  total: [A, G],
+  archetype: [G, A],
+  peak: [G, A],
+  streak: [A, G],
+  comeback: [A, G],
+  project: [G, A],
+  constellation: [G, A],
+  scope: [A, G],
+  collaborator: [G, A],
+  integrations: [G, A],
+  "got-away": [A, G],
+  label: [G, A],
+  signature: [A, G],
+  "photo-finish": [G, A],
+  summary: [G, A],
 };
 
-export const SURFACE = "#07080b";
+export const SURFACE = PALETTE.screen;
 
 export const IMAGE_FORMATS = {
   story: { width: 1080, height: 1920 },
@@ -36,10 +40,23 @@ export type ImageFormat = keyof typeof IMAGE_FORMATS;
 /**
  * Bump whenever the share image design changes. It is part of every image URL
  * (`r=`): image responses are cached immutably per URL, and a token alone never
- * changes when only the artwork does (summary snapshots are identical before and
- * after the holographic redesign), so without it old PNGs keep being served.
+ * changes when only the artwork does (snapshots are identical before and after a
+ * redesign), so without it old PNGs keep being served.
  */
-export const IMAGE_VERSION = "holo2";
+export const IMAGE_VERSION = "pet1";
+
+/**
+ * Versions that were ever minted into links. They stay valid (links people
+ * already shared keep working) but are answered with the current design.
+ */
+export const LEGACY_IMAGE_VERSIONS: readonly string[] = ["holo2"];
+
+/** `r` absent (links from before versioning), current, or a known legacy version. */
+export const isAcceptedVersion = (version: string | null) => version === null || version === IMAGE_VERSION || LEGACY_IMAGE_VERSIONS.includes(version);
+
+/** Immutable only when the URL pins the current design; anything else must revalidate so a redesign can't stay stuck in caches. */
+export const imageCacheControl = (version: string | null) =>
+  version === IMAGE_VERSION ? "public, max-age=31536000, immutable" : "public, max-age=0, must-revalidate";
 
 /** Query string for an image URL: format plus the current design version. */
 export const imageQuery = (format: ImageFormat) => `f=${format}&r=${IMAGE_VERSION}`;

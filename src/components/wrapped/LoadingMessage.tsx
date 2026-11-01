@@ -17,8 +17,8 @@ export function LoadingMessage() {
   }, []);
 
   return (
-    <p key={index} aria-hidden className="animate-rise min-h-8 text-lg font-semibold text-white/90 sm:text-2xl">
-      {LOADING_MESSAGES[index]}…
+    <p key={index} aria-hidden className="animate-rise min-h-8">
+      &gt; {LOADING_MESSAGES[index]}…
     </p>
   );
 }

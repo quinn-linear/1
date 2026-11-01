@@ -13,8 +13,7 @@ const ERRORS: Record<number, string> = {
   429: "Linear is rate limiting us. Try again in a minute.",
 };
 
-const button =
-  "rounded-full px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-40";
+const button = "term-btn";
 
 /**
  * Modal share panel for one card. Nothing is created until it opens, nothing
@@ -106,76 +105,76 @@ export function ShareDialog({ card, title, onClose }: { card: CardId; title: str
       // Keep taps and swipes inside the panel from navigating the story underneath.
       onPointerDown={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
-      className="m-auto max-h-[92dvh] w-[min(94vw,30rem)] select-text overflow-y-auto rounded-3xl bg-[#0d0e14] p-5 text-white shadow-[0_0_80px_-20px_rgba(139,92,246,0.6)] ring-1 ring-white/15 backdrop:bg-black/75 backdrop:backdrop-blur-sm sm:p-6"
+      className="m-auto max-h-[92dvh] w-[min(94vw,32rem)] select-text overflow-y-auto border-4 border-ph bg-screen p-5 text-ph phosphor backdrop:bg-black/80 sm:p-6"
     >
       <div className="flex items-start justify-between gap-4">
-        <h2 id="share-title" className="text-xl font-semibold tracking-tight">
-          Share “{title}”
+        <h2 id="share-title" className="text-2xl uppercase tracking-wide text-amber">
+          Save “{title}”
         </h2>
-        <button type="button" onClick={() => dialog.current?.close()} aria-label="Close share panel" className={`${button} bg-white/10 px-3 py-1.5 hover:bg-white/20`}>
+        <button type="button" onClick={() => dialog.current?.close()} aria-label="Close share panel" className={button}>
           ✕
         </button>
       </div>
 
       {load.status === "error" && (
-        <div role="alert" className="mt-4 rounded-2xl bg-red-500/15 p-4 text-sm font-medium text-red-100 ring-1 ring-red-400/40">
+        <div role="alert" className="panel mt-4 !border-amber p-4 text-lg text-amber">
           <p>{load.message}</p>
-          <button type="button" onClick={() => { setLoad({ status: "loading" }); setAttempt((n) => n + 1); }} className={`${button} mt-3 bg-white text-black`}>
+          <button type="button" onClick={() => { setLoad({ status: "loading" }); setAttempt((n) => n + 1); }} className={`${button} mt-3`}>
             Try again
           </button>
         </div>
       )}
 
       <div className="mt-4 flex gap-4">
-        <div className="aspect-[9/16] w-24 shrink-0 overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/20 sm:w-28">
+        <div className="aspect-[9/16] w-24 shrink-0 overflow-hidden border-2 border-ph/60 bg-ph/10 sm:w-28">
           {link && (
             // Same-origin generated preview of exactly what gets shared.
             // eslint-disable-next-line @next/next/no-img-element
             <img src={link.storyImageUrl} alt={link.alt} width={108} height={192} className="h-full w-full object-cover" />
           )}
         </div>
-        <section aria-labelledby="share-reveals" className="min-w-0 text-sm">
-          <h3 id="share-reveals" className="font-extrabold">
+        <section aria-labelledby="share-reveals" className="min-w-0 text-lg">
+          <h3 id="share-reveals" className="uppercase text-amber">
             Anyone with the link will see
           </h3>
           {link ? (
-            <ul className="mt-1 list-disc space-y-0.5 pl-5 text-white/85 [overflow-wrap:anywhere]">
+            <ul className="mt-1 list-disc space-y-0.5 pl-5 text-ph [overflow-wrap:anywhere]">
               {link.reveals.map((r) => (
                 <li key={r}>{r}</li>
               ))}
             </ul>
           ) : (
-            <p className="mt-1 text-white/70">{load.status === "loading" ? "Preparing…" : "Unavailable."}</p>
+            <p className="mt-1 text-ph/80">{load.status === "loading" ? "Preparing…" : "Unavailable."}</p>
           )}
         </section>
       </div>
 
-      <p className="mt-3 text-xs font-medium text-white/65">
+      <p className="mt-3 text-base text-ph/80">
         Only this card, and no sign-in is needed to view it. Your other cards stay private. We store nothing: the card&apos;s data lives inside the link, so we can&apos;t take it back once it&apos;s shared.
       </p>
 
       {link?.sensitive && (
-        <label className="mt-3 flex items-start gap-2 rounded-2xl bg-amber-400/15 p-3 text-sm font-semibold text-amber-100 ring-1 ring-amber-300/40">
-          <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-amber-300" />
+        <label className="panel mt-3 flex items-start gap-2 !border-amber p-3 text-lg text-amber">
+          <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-amber" />
           <span>This includes names from your workspace (listed above). I&apos;m okay making them public.</span>
         </label>
       )}
 
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <button type="button" onClick={postToX} disabled={!canShare} className={`${button} bg-white text-black hover:bg-white/90`}>
+        <button type="button" onClick={postToX} disabled={!canShare} className={`${button}`}>
           Share on X
         </button>
-        <button type="button" onClick={copy} disabled={!canShare} className={`${button} glass hover:bg-white/10`}>
+        <button type="button" onClick={copy} disabled={!canShare} className={`${button}`}>
           Copy link
         </button>
-        <button type="button" onClick={() => download("story")} disabled={!canShare} className={`${button} glass hover:bg-white/10`}>
+        <button type="button" onClick={() => download("story")} disabled={!canShare} className={`${button}`}>
           Download image
         </button>
-        <button type="button" onClick={() => download("og")} disabled={!canShare} className={`${button} glass hover:bg-white/10`}>
+        <button type="button" onClick={() => download("og")} disabled={!canShare} className={`${button}`}>
           Download wide image
         </button>
       </div>
-      {link?.sensitive && !ack && <p className="mt-2 text-xs font-medium text-amber-100/90">Tick the box above to enable sharing.</p>}
+      {link?.sensitive && !ack && <p className="mt-2 text-base text-amber">Tick the box above to enable sharing.</p>}
 
       {link && (
         <input
@@ -184,11 +183,11 @@ export function ShareDialog({ card, title, onClose }: { card: CardId; title: str
           value={link.url}
           aria-label="Share link"
           onFocus={(e) => e.currentTarget.select()}
-          className="mt-3 w-full rounded-xl bg-black/30 px-3 py-2 text-xs text-white/80 ring-1 ring-white/20"
+          className="mt-3 w-full border-2 border-ph/50 bg-black/40 px-3 py-2 text-base text-ph"
         />
       )}
 
-      <p role="status" aria-live="polite" className={`mt-3 min-h-5 text-sm font-semibold ${notice?.ok === false ? "text-red-200" : "text-emerald-200"}`}>
+      <p role="status" aria-live="polite" className={`mt-3 min-h-6 text-lg ${notice?.ok === false ? "text-amber" : "text-ph"}`}>
         {notice?.text}
       </p>
     </dialog>
