@@ -1,32 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  CALLBACK_PATH,
-  LINEAR_AUTHORIZE_URL,
-  LINEAR_SCOPE,
-  STATE_COOKIE,
-  createState,
-  getCredentials,
-  stateCookieOptions,
-} from "@/lib/auth";
+import { RECONNECT_COOKIE, STATE_COOKIE, buildAuthorizeUrl, createState, getCredentials, reconnectCookieOptions, stateCookieOptions, wantsWorkspaceChoice } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export function GET(request: NextRequest) {
-  const { origin } = request.nextUrl;
+  const { origin, searchParams } = request.nextUrl;
   const creds = getCredentials();
   if (!creds) return NextResponse.redirect(new URL("/?error=config", origin));
 
   const state = createState();
-  const url = new URL(LINEAR_AUTHORIZE_URL);
-  url.search = new URLSearchParams({
-    client_id: creds.clientId,
-    redirect_uri: origin + CALLBACK_PATH,
-    response_type: "code",
-    scope: LINEAR_SCOPE,
-    state,
-  }).toString();
-
-  const response = NextResponse.redirect(url);
+  // After signing out (or with ?switch=1) Linear's consent screen is shown again so another workspace can be chosen.
+  const chooseWorkspace = wantsWorkspaceChoice(request.cookies.get(RECONNECT_COOKIE)?.value, searchParams.get("switch"));
+  const response = NextResponse.redirect(buildAuthorizeUrl({ clientId: creds.clientId, origin, state, chooseWorkspace }));
   response.cookies.set(STATE_COOKIE, state, stateCookieOptions());
+  // The marker is spent once the consent screen has been requested.
+  if (chooseWorkspace) response.cookies.set(RECONNECT_COOKIE, "", { ...reconnectCookieOptions(), maxAge: 0 });
   return response;
 }

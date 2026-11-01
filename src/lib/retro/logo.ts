@@ -1,26 +1,72 @@
 /**
- * The boot screen's artwork: the Linear mark (a circle crossed by diagonal
- * cuts in its lower-left) drawn in half blocks with a little shade dithering
- * on the rim, plus the exact title text and how the lines are revealed.
+ * The boot screen's artwork: the Linear mark drawn as geometry, not as text
+ * characters, so the circle keeps its true shape and aspect ratio at any size.
  *
- * Original artwork, drawn by hand as 14 x 12 "pixels" (two per character row)
- * so a circle reads at terminal size. Every row is the same width: it is shown
- * in a monospace face with no letter-spacing, so columns must line up.
+ * Measured from the reference render: a circle cut into 17 thin horizontal
+ * scanline bands, with three parallel 45-degree cuts running down and to the
+ * right through its lower-left. Everything is in units of the circle radius
+ * (centre 0,0; y grows downward) and mapped into a square `LOGO_VIEWBOX`, so
+ * the SVG is as wide as it is tall. Each band is its own row, so the boot can
+ * reveal the mark one scanline at a time.
  */
-export const LOGO_LINES = [
-  "  ▄▄██████▄▄  ",
-  " █████▀██████ ",
-  "▒███▀▄█▀▄█████",
-  "▓█▀▄█▀▄█▀▄████",
-  " ░█▀▄█▀▄█████ ",
-  "   ▀▀▄████▀▀  ",
-] as const;
+export const LOGO_VIEWBOX = 100;
+const CENTER = LOGO_VIEWBOX / 2;
+/** Circle radius in viewBox units (a little inside the box so the edge is never clipped). */
+export const LOGO_RADIUS = 48;
+
+export const LOGO_BANDS = 17;
+/** Share of each band's pitch that is lit; the rest is the dark gap between scanlines. */
+const BAND_DUTY = 0.48;
+
+/**
+ * The diagonal pieces, as ranges of u = x - y (in radii). Cuts run along x - y = const, i.e. down and to the right.
+ * The main body is everything right of its edge; the three strips left of it are separated by gaps of the same width as the strips.
+ */
+const DIAGONAL_PIECES: readonly (readonly [number, number])[] = [
+  [-0.136, 4],
+  [-0.568, -0.364],
+  [-1.0, -0.795],
+  [-1.43, -1.227],
+];
+
+export interface LogoRow {
+  /** Polygons (SVG `points`) lit in this scanline band, already in viewBox units. Clipped to the circle by `LOGO_CLIP`. */
+  polygons: string[];
+  /** Top and bottom of the band, in viewBox units. */
+  top: number;
+  bottom: number;
+}
+
+const fmt = (n: number) => String(Math.round(n * 100) / 100);
+
+/** One entry per scanline band, top to bottom. Parallelograms where a diagonal piece crosses the band. */
+export function logoRows(): LogoRow[] {
+  const pitch = (2 * LOGO_RADIUS) / (LOGO_BANDS - 1);
+  const lit = pitch * BAND_DUTY;
+  return Array.from({ length: LOGO_BANDS }, (_, i) => {
+    // Band centres run from the circle's top to its bottom, so the first and last are slivers the clip trims.
+    const mid = CENTER - LOGO_RADIUS + i * pitch;
+    const top = mid - lit / 2;
+    const bottom = mid + lit / 2;
+    const polygons = DIAGONAL_PIECES.map(([u0, u1]) => {
+      const a = u0 * LOGO_RADIUS;
+      const b = u1 * LOGO_RADIUS;
+      // x = CENTER + u + (y - CENTER): the left and right edges lean at 45 degrees.
+      const x = (u: number, y: number) => CENTER + u + (y - CENTER);
+      return [[x(a, top), top], [x(b, top), top], [x(b, bottom), bottom], [x(a, bottom), bottom]].map(([px, py]) => `${fmt(px)},${fmt(py)}`).join(" ");
+    });
+    return { polygons, top, bottom };
+  });
+}
+
+/** Whether a point (viewBox units) is inside the circle. */
+export const insideLogo = (x: number, y: number) => (x - CENTER) ** 2 + (y - CENTER) ** 2 <= LOGO_RADIUS ** 2;
 
 /** Shown exactly like this (not forced to capitals) beside the mark. */
 export const BOOT_TITLE = "Linear wrapped";
 
 /** Remaining boot lines, in order, under the title. Short enough for the PET screen's columns. */
-export const BOOT_LINES = ["2026", "", "READY.", "INSERT DISK"] as const;
+export const BOOT_LINES = ["2026", "", "READY.", "LOAD TAPE"] as const;
 
 /** Spoken name of the whole boot screen; the art itself is hidden from assistive tech. */
 export const BOOT_LABEL = "Linear wrapped";
@@ -31,6 +77,13 @@ const STEP_MS = 80;
 /** Delay in ms before each of `count` lines appears. `instant` (reduced motion, skipped) shows them all at once. */
 export function bootSchedule(count: number, instant: boolean): number[] {
   return Array.from({ length: count }, (_, i) => (instant ? 0 : BASE_MS + i * STEP_MS));
+}
+
+const LOGO_STEP_MS = 40;
+
+/** Delay in ms before each scanline band of the mark appears: a fast top-to-bottom sweep, 17 bands in well under a second. */
+export function logoSchedule(instant: boolean): number[] {
+  return Array.from({ length: LOGO_BANDS }, (_, i) => (instant ? 0 : BASE_MS + i * LOGO_STEP_MS));
 }
 
 /** When the last of `count` lines has appeared. */

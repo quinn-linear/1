@@ -355,19 +355,99 @@ input.term-input {
   justify-content: center;
 }
 
-.dock-art {
-  position: relative;
+/* Where the cassette rests: as big as the dock allows, never wider than a comfortable size. */
+.cassette-rest {
   flex: none;
-  aspect-ratio: 480 / 365;
-  width: min(100cqw, calc(100cqh * 480 / 365));
+  aspect-ratio: 200 / 130;
+  width: min(100cqw, calc(100cqh * 200 / 130), 17rem);
 }
 
-.dock-keys {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem 0.6rem;
-  padding-bottom: 5px;
+/* The cassette hovers, very slightly; still while held or accepted, and under reduced motion. */
+.cassette-float {
+  animation: cassette-float 4.5s ease-in-out infinite;
+}
+
+.cassette-still {
+  animation: none;
+}
+
+@keyframes cassette-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.cassette-btn {
+  border-radius: 10px;
+}
+
+.cassette-btn:focus-visible {
+  outline: 2px solid var(--color-lav);
+  outline-offset: 5px;
+  box-shadow: 0 0 18px 2px rgb(184 168 255 / 0.45);
+}
+
+/* One slow glow on the message, then steady. No flicker, no strobe. */
+.access-granted {
+  text-shadow: 0 0 0.35em rgb(233 229 255 / 0.9), 0 0 0.9em rgb(184 168 255 / 0.7);
+  animation: access-glow 1.4s ease-out both;
+}
+
+@keyframes access-glow {
+  0% { opacity: 0; text-shadow: 0 0 0 rgb(184 168 255 / 0); }
+  45% { opacity: 1; text-shadow: 0 0 0.5em rgb(233 229 255 / 1), 0 0 1.2em rgb(184 168 255 / 0.9); }
+  100% { opacity: 1; text-shadow: 0 0 0.3em rgb(233 229 255 / 0.8), 0 0 0.8em rgb(184 168 255 / 0.55); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cassette-float, .access-granted { animation: none; }
+}
+
+.landing-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.25rem;
+  color: color-mix(in srgb, var(--ph) 75%, transparent);
+  font-size: 1.2rem;
+  letter-spacing: 0.06em;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.landing-link:hover {
+  color: var(--ph);
+}
+
+.landing-link:focus-visible {
+  outline: 2px solid var(--color-lav);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* A quiet text toggle, not a keycap: sound is optional and stays out of the way. */
+.quiet-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: color-mix(in srgb, var(--ph) 65%, transparent);
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.quiet-toggle:hover {
+  color: var(--ph);
+}
+
+.quiet-toggle:focus-visible {
+  outline: 2px solid var(--color-lav);
+  outline-offset: 2px;
 }
 
 @media (min-width: 700px) and (orientation: landscape) {
@@ -375,11 +455,6 @@ input.term-input {
     grid-template-rows: minmax(0, 1fr);
     grid-template-columns: minmax(0, 1fr) clamp(15rem, 30vw, 25rem);
     align-items: stretch;
-  }
-  .dock-keys {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    width: 100%;
   }
 }
 
@@ -395,19 +470,16 @@ input.term-input {
   }
 }
 
-/* The boot screen on the PET's CRT: the logo in a block-capable monospace face, revealed line by line. */
+/* The boot screen on the PET's CRT: the mark as an SVG (square, so the circle stays round), revealed one scanline band at a time. */
 .boot {
   font-size: 0.74em;
 }
 
 .boot-logo {
-  font-family: ui-monospace, "DejaVu Sans Mono", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  font-size: 0.6em;
-  line-height: 1;
-  letter-spacing: 0;
-  font-variant-ligatures: none;
-  white-space: pre;
-  text-transform: none;
+  /* About five text lines tall, and as wide as tall. */
+  height: 5.2em;
+  width: 5.2em;
+  overflow: visible;
 }
 
 .boot-line {
@@ -483,11 +555,8 @@ input.term-input {
 .reveal-stack > :nth-child(n + 13) { --i: 12; }
 
 @media (max-width: 639px) {
-  .landing-header .term-btn {
-    min-height: 2.25rem;
-    padding-inline: 0.6rem;
+  .landing-link {
     font-size: 1.05rem;
-    letter-spacing: 0.04em;
   }
   .landing-hint {
     font-size: 1.2rem;

@@ -1,13 +1,13 @@
 "use client";
 
 import { animate, motion, useMotionValue, useReducedMotion } from "framer-motion";
-import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { HELP_LINES, LOAD_LINES, SYNTAX_LINES, bootReducer, parseCommand } from "@/lib/retro/boot";
-import { TAP_SLOP_PX, clampOffset, isOverSlot, seatedOffset, type Box } from "@/lib/retro/drag";
-import { BOOT_LABEL, BOOT_LINES, BOOT_TITLE, LOGO_LINES, bootSchedule } from "@/lib/retro/logo";
-import { DriveFront, Floppy } from "./Floppy";
-import { PetComputer } from "./PetComputer";
+import { ACCESS_GRANTED, CONNECTING, grantHold, grantReducer } from "@/lib/retro/cassette";
+import { TAP_SLOP_PX, centeredOffset, clampOffset, containsPoint, type Box } from "@/lib/retro/drag";
+import { BOOT_LABEL, BOOT_LINES, BOOT_TITLE, LOGO_RADIUS, LOGO_VIEWBOX, bootSchedule, logoRows, logoSchedule } from "@/lib/retro/logo";
+import { Cassette } from "./Cassette";
+import { PetComputer, type PetState } from "./PetComputer";
 import { SoundToggle, useSound } from "./Sound";
 
 /** Above everything on the page, whatever stacking context or clipping box it would otherwise live in. */
@@ -15,56 +15,51 @@ const TOP_LAYER = 2147483647;
 
 const toBox = (r: DOMRect): Box => ({ left: r.left, top: r.top, width: r.width, height: r.height });
 
+const LOGO_ROWS = logoRows();
+
 /**
  * The landing screen: a PET-style computer whose screen boots with the Linear
- * mark, an external drive and a floppy disk. Insert the disk (drag it, tap it,
- * or press the button), watch it load, then press Enter, type RUN or press the
- * RETURN key to start the real read-only OAuth sign-in (`startPath`). A plain
- * "skip" link to the same sign-in is always on the page, so the flourish never
- * gates it, and the boot animation never delays the floppy: it is skipped by
- * any key or touch and by inserting the disk.
+ * mark, and a cassette tape floating beside it. Drag the cassette onto the
+ * computer (the screen glows while it is over it) and let go: the screen says
+ * ACCESS GRANTED and, a moment later, this tab goes to Linear's real read-only
+ * authorization page (`startPath`). The cassette is also a single focusable
+ * control: Enter, Space or a tap does the same without dragging. There is no
+ * popup and no embedded Linear: OAuth is a full-page redirect.
  *
- * The floppy is drawn in a portal on `document.body` at the highest z-index, so
- * while it is dragged and while it seats it is above the drive, the computer and
- * every clipping or stacking context in the page. It is positioned from the
- * measured resting spot, so it follows the layout when the viewport changes.
+ * The cassette is drawn in a portal on `document.body` at the highest z-index, so
+ * it is above the computer and every clipping or stacking context while it is
+ * dragged. It is positioned from its measured resting spot, and the drop target
+ * (the computer) is measured at the moment of every move and release, so hit
+ * testing follows the responsive layout. A drop elsewhere springs it back. The
+ * grant can only happen once, so a second drop, tap or key press never starts a
+ * second redirect.
  */
 export function PetLanding({ year, startPath }: { year: number; startPath: string }) {
   const reduce = !!useReducedMotion();
   const { play } = useSound();
-  const [phase, dispatch] = useReducer(bootReducer, "empty");
-  const [log, setLog] = useState<string[]>([]);
-  const [noDisk, setNoDisk] = useState(false);
-  const [value, setValue] = useState("");
+  const [phase, dispatch] = useReducer(grantReducer, "idle");
   const [bootSkipped, setBootSkipped] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
   const timers = useRef<number[]>([]);
+  const launched = useRef(false);
 
+  const petRef = useRef<HTMLDivElement>(null);
   const restRef = useRef<HTMLDivElement>(null);
-  const slotRef = useRef<HTMLDivElement>(null);
   const [rest, setRest] = useState<Box | null>(null);
   const [dragging, setDragging] = useState(false);
   const press = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
+  const suppressClick = useRef(false);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const tilt = useMotionValue(-5);
-  const seated = phase !== "empty";
+  const tilt = useMotionValue(-4);
+  const opacity = useMotionValue(1);
 
-  const later = useCallback(
-    (ms: number, fn: () => void) => {
-      timers.current.push(window.setTimeout(fn, reduce ? Math.min(ms, 40) : ms));
-    },
-    [reduce],
-  );
   const clearTimers = useCallback(() => {
     timers.current.forEach(window.clearTimeout);
     timers.current = [];
   }, []);
   useEffect(() => clearTimers, [clearTimers]);
 
-  const append = (...lines: string[]) => setLog((l) => [...l, ...lines]);
-
-  // Measure where the disk rests, and keep it current as the layout moves.
+  // Measure where the cassette rests, and keep it current as the layout moves.
   const measure = useCallback(() => {
     if (restRef.current) setRest(toBox(restRef.current.getBoundingClientRect()));
   }, []);
@@ -82,22 +77,6 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
     };
   }, [measure]);
 
-  const seatPose = useCallback((): { x: number; y: number } | null => {
-    const r = restRef.current?.getBoundingClientRect();
-    const s = slotRef.current?.getBoundingClientRect();
-    return r && s ? seatedOffset(toBox(r), toBox(s)) : null;
-  }, []);
-
-  // If the layout changes while the disk is in the drive, keep it in the slot.
-  useLayoutEffect(() => {
-    if (!seated || !rest) return;
-    const pose = seatPose();
-    if (pose) {
-      x.set(pose.x);
-      y.set(pose.y);
-    }
-  }, [rest, seated, seatPose, x, y]);
-
   // The boot animation is skipped by any key press or touch. (Reduced motion skips it in CSS.)
   useEffect(() => {
     if (bootSkipped) return;
@@ -112,83 +91,62 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
 
   const move = useCallback(
     (to: { x: number; y: number }, spring = false) => {
-      const opts = reduce ? { duration: 0.01 } : spring ? { type: "spring" as const, stiffness: 300, damping: 24 } : { duration: 0.7, ease: [0.3, 0.7, 0.3, 1] as [number, number, number, number] };
+      const opts = reduce ? { duration: 0.01 } : spring ? { type: "spring" as const, stiffness: 300, damping: 24 } : { duration: 0.6, ease: [0.3, 0.7, 0.3, 1] as [number, number, number, number] };
       void animate(x, to.x, opts);
       void animate(y, to.y, opts);
     },
     [reduce, x, y],
   );
 
-  const insert = useCallback(() => {
-    if (phase !== "empty") return;
-    dispatch({ type: "insert" });
+  const home = useCallback(() => {
+    move({ x: 0, y: 0 }, true);
+    void animate(tilt, -4, { duration: reduce ? 0.01 : 0.3 });
+  }, [move, reduce, tilt]);
+
+  // Accepted: the cassette goes into the computer, the screen says so, then the real OAuth redirect (once).
+  const grant = useCallback(() => {
+    if (launched.current) return;
+    launched.current = true;
     setBootSkipped(true);
-    setNoDisk(false);
-    setLog([]);
-    play("disk");
-    move(seatPose() ?? { x: 0, y: -120 });
-    void animate(tilt, 0, { duration: reduce ? 0.01 : 0.4 });
-    later(760, () => {
-      dispatch({ type: "inserted" });
-      LOAD_LINES.forEach((line, i) => later(300 + i * 330, () => append(line)));
-      later(300 + LOAD_LINES.length * 330 + 150, () => {
-        dispatch({ type: "loaded" });
-        play("ready");
-        if (window.matchMedia("(pointer: fine)").matches) input.current?.focus();
-      });
-    });
-  }, [later, move, phase, play, reduce, seatPose, tilt]);
-
-  const eject = () => {
-    clearTimers();
-    dispatch({ type: "eject" });
-    setLog([]);
-    setValue("");
-    setNoDisk(false);
-    play("key");
-    move({ x: 0, y: 0 });
-    void animate(tilt, -5, { duration: reduce ? 0.01 : 0.4 });
-  };
-
-  const submit = (e?: FormEvent) => {
-    e?.preventDefault();
-    if (phase !== "ready") return;
-    const cmd = parseCommand(value);
-    setValue("");
-    if (cmd.kind === "run") {
-      dispatch({ type: "run" });
-      play("advance");
-      append("RUN", "CONNECTING TO LINEAR...", "READ-ONLY ACCESS");
-      later(900, () => window.location.assign(startPath));
-    } else {
-      play("error");
-      append(`> ${value.trim().toUpperCase()}`, ...(cmd.kind === "help" ? HELP_LINES : SYNTAX_LINES));
+    play("ready");
+    const pet = petRef.current?.getBoundingClientRect();
+    if (pet && rest) {
+      move(centeredOffset(rest, toBox(pet)));
+      void animate(tilt, 0, { duration: reduce ? 0.01 : 0.3 });
+      void animate(opacity, 0, { duration: reduce ? 0.01 : 0.35, delay: reduce ? 0 : 0.45 });
     }
-  };
+    timers.current.push(
+      window.setTimeout(() => {
+        dispatch({ type: "launch" });
+        window.location.assign(startPath);
+      }, grantHold(reduce)),
+    );
+  }, [move, opacity, play, reduce, rest, startPath, tilt]);
 
-  // Enter works from anywhere on the page once a program is loaded, unless a control has focus.
+  // Coming back to this page from the browser's back button (bfcache) must not leave it stuck mid sign-in.
   useEffect(() => {
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== "Enter" || e.metaKey || e.ctrlKey || e.altKey || document.activeElement !== document.body) return;
-      if (phase === "empty") {
-        play("error");
-        setNoDisk(true);
-      } else if (phase === "ready") {
-        input.current?.focus();
-        submit();
-      }
+    const onShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      clearTimers();
+      launched.current = false;
+      dispatch({ type: "reset" });
+      x.set(0);
+      y.set(0);
+      tilt.set(-4);
+      opacity.set(1);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, [clearTimers, opacity, tilt, x, y]);
 
-  const onInputKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key.length === 1 || e.key === "Backspace") play("key");
+  const overPet = (e: ReactPointerEvent) => {
+    const r = petRef.current?.getBoundingClientRect();
+    return !!r && containsPoint(toBox(r), e.clientX, e.clientY);
   };
 
-  // Dragging: plain pointer events with capture, so the disk follows the finger or cursor anywhere on screen.
+  // Dragging: plain pointer events with capture, so the cassette follows the finger or cursor anywhere on screen.
   const onDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
-    if (phase !== "empty" || !e.isPrimary || e.button > 0) return;
+    if (launched.current || !e.isPrimary || e.button > 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     press.current = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId };
   };
@@ -201,105 +159,99 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
     if (!p.moved) {
       p.moved = true;
       setDragging(true);
+      dispatch({ type: "grab" });
     }
     const o = clampOffset(rest, dx, dy, { width: window.innerWidth, height: window.innerHeight });
     x.set(o.x);
     y.set(o.y);
+    dispatch({ type: overPet(e) ? "enter" : "leave" });
   };
   const onUp = (e: ReactPointerEvent<HTMLButtonElement>) => {
     const p = press.current;
     press.current = null;
     if (!p) return;
     if (e.currentTarget.hasPointerCapture(p.id)) e.currentTarget.releasePointerCapture(p.id);
+    if (!p.moved) return; // a tap: the click that follows does the grant
     setDragging(false);
-    const s = slotRef.current?.getBoundingClientRect();
-    if (!p.moved) insert();
-    else if (rest && s && isOverSlot({ left: rest.left + x.get(), top: rest.top + y.get(), width: rest.width, height: rest.height }, toBox(s))) insert();
-    else move({ x: 0, y: 0 }, true);
+    // The browser fires a click after a drag that ends on the same element; it must not count as a tap.
+    suppressClick.current = true;
+    window.setTimeout(() => (suppressClick.current = false), 0);
+    const over = overPet(e);
+    dispatch({ type: "release", over });
+    if (over) grant();
+    else home();
   };
   const onCancel = () => {
-    if (!press.current) return;
+    const p = press.current;
     press.current = null;
+    if (!p || !p.moved) return;
     setDragging(false);
-    move({ x: 0, y: 0 }, true);
+    dispatch({ type: "cancel" });
+    home();
+  };
+  const onClick = () => {
+    if (suppressClick.current || launched.current) return;
+    dispatch({ type: "activate" });
+    grant();
   };
 
-  const status =
-    phase === "empty"
-      ? "No disk in the drive. Insert the floppy disk to begin."
-      : phase === "inserting"
-        ? "Inserting the floppy disk."
-        : phase === "loading"
-          ? "Loading from disk."
-          : phase === "ready"
-            ? "Program loaded. Press Enter, type RUN, or press the Return key to sign in with Linear."
-            : "Connecting to Linear.";
+  const petState: PetState = phase === "over" ? "hover" : phase === "granted" || phase === "launching" ? "granted" : "idle";
+  const accepted = petState === "granted";
 
-  const rows = LOGO_LINES.length;
+  const status =
+    phase === "over"
+      ? "Release the cassette to sign in."
+      : accepted
+        ? `${ACCESS_GRANTED}. ${CONNECTING}`
+        : "Drag the cassette onto the computer, or press Enter or Space on it, to sign in with Linear.";
+
+  // Text lines: the title, then each boot line.
+  const rows = BOOT_LINES.length + 1;
   const delays = bootSchedule(rows, false);
   const lineDelay = (i: number): CSSProperties => ({ animationDelay: `${delays[Math.min(i, rows - 1)]}ms` });
-  const lastBoot = noDisk ? "?NO DISK  ERROR" : BOOT_LINES[BOOT_LINES.length - 1];
+  const bandDelays = logoSchedule(false);
 
   return (
     <div className="landing-body">
-      <PetComputer on={seated}>
-        {phase === "empty" ? (
+      <PetComputer state={petState} viewRef={petRef}>
+        {accepted ? (
+          // One slow glow, then steady: never a strobe.
+          <div aria-hidden className="flex h-full flex-col items-center justify-center whitespace-nowrap text-center">
+            <p className="access-granted text-[1.15em] leading-none">{ACCESS_GRANTED}</p>
+            <p className="mt-[0.6em] text-[0.62em] leading-none opacity-80">{CONNECTING}</p>
+          </div>
+        ) : (
           // The boot screen: the mark beside the title. The art is decorative; the group carries the name once.
           <div role="group" aria-label={BOOT_LABEL} className={`boot flex items-center gap-[0.7em] whitespace-nowrap ${bootSkipped ? "boot-skip" : ""}`} onClick={() => setBootSkipped(true)}>
-            <pre aria-hidden className="boot-logo m-0 shrink-0 text-lav">
-              {LOGO_LINES.map((line, i) => (
-                <span key={i} className="boot-line block" style={lineDelay(i)}>
-                  {line}
-                </span>
-              ))}
-            </pre>
+            <svg aria-hidden focusable="false" viewBox={`0 0 ${LOGO_VIEWBOX} ${LOGO_VIEWBOX}`} className="boot-logo shrink-0 text-ph">
+              <defs>
+                <clipPath id="boot-logo-clip">
+                  <circle cx={LOGO_VIEWBOX / 2} cy={LOGO_VIEWBOX / 2} r={LOGO_RADIUS} />
+                </clipPath>
+              </defs>
+              <g clipPath="url(#boot-logo-clip)" fill="currentColor" shapeRendering="crispEdges">
+                {LOGO_ROWS.map((row, i) => (
+                  <g key={i} className="boot-line" style={{ animationDelay: `${bandDelays[i]}ms` }}>
+                    {row.polygons.map((points, j) => (
+                      <polygon key={j} points={points} />
+                    ))}
+                  </g>
+                ))}
+              </g>
+            </svg>
             <div className="min-w-0">
-              <p className="boot-line normal-case" style={lineDelay(1)}>
+              <p className="boot-line normal-case" style={lineDelay(0)}>
                 {BOOT_TITLE}
               </p>
-              {BOOT_LINES.slice(0, -1).map((line, i) => (
-                <p key={i} className="boot-line whitespace-pre" style={lineDelay(i + 2)}>
+              {BOOT_LINES.map((line, i) => (
+                <p key={i} className="boot-line whitespace-pre" style={lineDelay(i + 1)}>
                   {line === "" ? " " : line}
                 </p>
               ))}
-              <p className="boot-line whitespace-pre" style={lineDelay(rows)}>
-                {lastBoot}
-              </p>
               <p aria-hidden>
                 <span className="cursor-block" />
               </p>
             </div>
-          </div>
-        ) : (
-          // The terminal: a log (read out politely) with a live prompt once a program is loaded.
-          <div role="log" aria-label="Terminal" className="flex flex-col justify-end overflow-hidden text-[0.8em]" onClick={() => input.current?.focus()}>
-            {log.map((line, i) => (
-              <p key={i} className="whitespace-pre-wrap break-words">
-                {line === "" ? " " : line}
-              </p>
-            ))}
-            {phase === "ready" ? (
-              <form onSubmit={submit} className="flex items-center">
-                <span aria-hidden>&gt;&nbsp;</span>
-                <input
-                  ref={input}
-                  value={value}
-                  onChange={(e) => setValue(e.target.value.slice(0, 24))}
-                  onKeyDown={onInputKey}
-                  aria-label="Terminal command. Press Enter, or type RUN, to sign in with Linear."
-                  autoComplete="off"
-                  autoCapitalize="characters"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  enterKeyHint="go"
-                  className="term-input min-w-0 flex-1 border-0 bg-transparent p-0 uppercase text-inherit outline-none [font:inherit] [letter-spacing:inherit]"
-                />
-              </form>
-            ) : (
-              <p aria-hidden>
-                <span className="cursor-block" />
-              </p>
-            )}
           </div>
         )}
       </PetComputer>
@@ -309,57 +261,35 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
 
       <div className="dock">
         <div className="dock-stage">
-          <div className="dock-art" data-phase={phase}>
-            <DriveFront busy={phase === "inserting" || phase === "loading"} className="pointer-events-none absolute left-0 top-0 h-auto w-full" />
-            {/* Where the disk's leading edge goes, and where it rests: measured, never hard-coded in px. */}
-            <div ref={slotRef} aria-hidden className="pointer-events-none absolute left-[7%] top-[27.9%] h-[9.3%] w-[86%]" />
-            <div ref={restRef} aria-hidden className="pointer-events-none absolute left-[32%] top-[51.2%] aspect-square w-[36%]" />
-          </div>
-        </div>
-
-        <div className="dock-keys">
-          <button type="button" className="keycap" onClick={insert} disabled={seated}>
-            Insert floppy
-          </button>
-          <button type="button" className="keycap" onClick={() => submit()} disabled={phase !== "ready"} aria-label="Return: run the program and sign in with Linear">
-            Return ⏎ Run
-          </button>
-          <button type="button" className="keycap" onClick={eject} disabled={!seated || phase === "launching"}>
-            Eject
-          </button>
-          <SoundToggle />
+          {/* Where the cassette rests: measured, never hard-coded in px. */}
+          <div ref={restRef} aria-hidden className="cassette-rest" />
         </div>
         <p className="landing-hint text-lg leading-snug text-ph/80">
-          {phase === "empty" ? (
-            <>
-              <span className="text-amber">STEP 1.</span> Drag the floppy up into the drive, or tap it.
-            </>
-          ) : (
-            <>
-              <span className="text-amber">STEP 2.</span> {phase === "ready" ? "Press ENTER (or RETURN) to run it." : "Loading from the disk."}
-            </>
-          )}
+          <span className="text-amber">&gt;</span> Drag the cassette onto the computer, or tap it.
         </p>
+        <SoundToggle variant="quiet" />
       </div>
 
       {rest &&
         createPortal(
           <motion.button
             type="button"
-            data-floppy
-            data-state={dragging ? "dragging" : seated ? "seated" : "resting"}
+            data-cassette
+            data-state={dragging ? "dragging" : accepted ? "accepted" : "resting"}
             onPointerDown={onDown}
             onPointerMove={onMove}
             onPointerUp={onUp}
             onPointerCancel={onCancel}
-            onClick={(e) => e.detail === 0 && insert()}
-            disabled={seated}
-            aria-label={seated ? `Linear Wrapped ${year} floppy disk, in the drive` : `Linear Wrapped ${year} floppy disk. Drag it up into the drive, or press Enter to insert it.`}
-            whileHover={reduce || seated || dragging ? undefined : { scale: 1.04 }}
-            className="focus-ph block cursor-grab touch-none select-none rounded-md active:cursor-grabbing disabled:cursor-default"
-            style={{ position: "fixed", left: rest.left, top: rest.top, width: rest.width, height: rest.height, zIndex: TOP_LAYER, x, y, rotate: tilt, padding: 0, background: "none", border: 0 }}
+            onClick={onClick}
+            disabled={accepted}
+            aria-label={`Linear Wrapped ${year} cassette tape. Drag it onto the computer, or press Enter or Space, to sign in with Linear. Read-only access.`}
+            whileHover={reduce || accepted || dragging ? undefined : { scale: 1.04 }}
+            className="cassette-btn block cursor-grab touch-none select-none active:cursor-grabbing disabled:cursor-default"
+            style={{ position: "fixed", left: rest.left, top: rest.top, width: rest.width, height: rest.height, zIndex: TOP_LAYER, x, y, rotate: tilt, opacity, padding: 0, background: "none", border: 0 }}
           >
-            <Floppy year={year} className="pointer-events-none block h-auto w-full drop-shadow-[0_8px_0_rgb(0_0_0/0.45)]" />
+            <span className={`cassette-float block h-full w-full ${dragging || accepted ? "cassette-still" : ""}`}>
+              <Cassette year={year} className="pointer-events-none block h-auto w-full drop-shadow-[0_8px_0_rgb(0_0_0/0.45)]" />
+            </span>
           </motion.button>,
           document.body,
         )}

@@ -44,7 +44,7 @@ export default async function Home({
         <header className="landing-header flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
           <div className="min-w-0">
             <h1 className="text-[clamp(1.5rem,min(7vw,5dvh),3rem)] leading-none tracking-wide text-amber">LINEAR WRAPPED {YEAR}</h1>
-            <p className="landing-tagline mt-1 max-w-xl text-lg leading-snug text-ph/80">Your year in Linear, loaded from a single floppy disk.</p>
+            <p className="landing-tagline mt-1 max-w-xl text-lg leading-snug text-ph/80">Your year in Linear, loaded from a single cassette tape.</p>
           </div>
           <SignInButton href={START_PATH} />
         </header>
@@ -59,7 +59,7 @@ export default async function Home({
 
         <noscript>
           <p className="panel p-3 text-lg">
-            The floppy disk needs JavaScript. <a href={START_PATH} className="text-amber underline">Sign in with Linear</a> to go straight to your recap.
+            The cassette needs JavaScript. <a href={START_PATH} className="text-amber underline">Sign in with Linear</a> to go straight to your recap.
           </p>
         </noscript>
       </section>
