@@ -2,7 +2,7 @@
 /**
  * Real-browser checks against a running server (see README, "Browser checks").
  *   PREVIEW_FIXTURES=1 npm run dev   (or `npm start` after a build)
- *   CHROME=/path/to/chrome BASE=http://localhost:3000 OUT=./shots node scripts/browser-check.mjs [landing|boot|dust|drag|story|print|dock|fullscreen|art|recapui|all]
+ *   CHROME=/path/to/chrome BASE=http://localhost:3000 OUT=./shots node scripts/browser-check.mjs [landing|boot|dust|moth|drag|story|print|dock|fullscreen|art|recapui|all]
  * Drives headless Chrome over the DevTools protocol (no extra dependencies) and
  * fails (exit 1) if the landing scrolls or has button clutter, the dragged
  * cassette is ever covered or a drop does the wrong thing (grant, miss, keyboard,
@@ -215,6 +215,34 @@ async function dust() {
   await mouse("mouseMoved", pos.fx - 260, pos.fy - 200);
   check((await evaluate(`document.querySelector("[data-cassette]").dataset.state`)) === "dragging", "dust: a drag across the lamp area still moves the cassette");
   await mouse("mouseReleased", pos.fx - 260, pos.fy - 200);
+}
+
+/** The moth: arrives after a quiet start, flutters inside the beam's box, leaves; never with reduced motion or a cropped-out beam. */
+async function moth() {
+  const flag = () => evaluate(`document.querySelector("[data-dust]")?.dataset.moth ?? ""`);
+  await viewport("desktop");
+  await go("/");
+  check((await flag()) !== "1", "moth: not there at the start (quiet gaps)");
+  let seen = 0;
+  let shots = 0;
+  let gone = false;
+  for (let i = 0; i < 400 && !gone; i++) {
+    await sleep(250);
+    const f = await flag();
+    if (f === "1") {
+      seen++;
+      if (seen === 8 || seen === 24) await shot(`moth-desktop-${++shots}`);
+    } else if (seen > 0) gone = true;
+  }
+  check(seen > 8 && gone, `moth: arrives, flutters (${seen} samples) and departs`);
+  check(await evaluate(`(() => { const c = document.querySelector("[data-dust]"); return c.getAttribute("aria-hidden") === "true" && getComputedStyle(c).pointerEvents === "none"; })()`), "moth: canvas stays aria-hidden and pointer-events none");
+  await go("/", { reduced: true });
+  await sleep(25000);
+  check((await flag()) === "", "moth: omitted under reduced motion");
+  await viewport("phone");
+  await go("/");
+  await sleep(25000);
+  check((await flag()) === "", "moth: never starts while the beam is cropped out (phone)");
 }
 
 async function boot() {
@@ -665,6 +693,7 @@ try {
   if (all || which === "landing") await landing();
   if (all || which === "boot") await boot();
   if (all || which === "dust") await dust();
+  if (all || which === "moth") await moth();
   if (all || which === "drag") await drag();
   if (all || which === "story") for (const f of (process.env.FIXTURES ?? "full,sparse,zero,long").split(",")) await story(f);
   if (all || which === "print" || which === "disk") await print();

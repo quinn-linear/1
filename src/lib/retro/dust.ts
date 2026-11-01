@@ -1,5 +1,5 @@
 /**
- * Dust motes in the lamp's beam: a handful of tiny warm specks that drift very slowly,
+ * Dust motes in the lamp's beam: a sprinkling of tiny warm specks that drift very slowly,
  * each fading in and out over its own long cycle. Pure maths (positions come from a
  * seeded generator and a time in seconds) so the behaviour is tested; the canvas only
  * draws what `moteAt` says. Coordinates are 0-1 inside the beam's box.
@@ -27,7 +27,7 @@ export interface Mote {
   depth: number;
 }
 
-export const MOTE_COUNT = 24;
+export const MOTE_COUNT = 34;
 /** The faintest and brightest a mote ever gets: never opaque, never glitter. */
 export const MAX_ALPHA = 0.72;
 /** Radius in CSS px for the farthest and nearest mote. */

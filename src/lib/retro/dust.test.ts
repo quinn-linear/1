@@ -6,7 +6,7 @@ import { MAX_ALPHA, MAX_RADIUS, MOTE_COUNT, makeMotes, moteAt, pointInPolygon, s
 test("the motes are sparse, deterministic, and start inside the lamp's beam", () => {
   const a = makeMotes(BEAM_POLYGON);
   assert.equal(a.length, MOTE_COUNT);
-  assert.ok(MOTE_COUNT <= 28, "a sprinkling, not a snowfall");
+  assert.ok(MOTE_COUNT <= 40, "a sprinkling, not a snowfall");
   assert.deepEqual(a, makeMotes(BEAM_POLYGON), "same specks every render");
   for (const m of a) assert.ok(pointInPolygon(m.x, m.y, BEAM_POLYGON), `(${m.x.toFixed(2)}, ${m.y.toFixed(2)}) is in the beam`);
 });
