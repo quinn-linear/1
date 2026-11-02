@@ -195,3 +195,13 @@ test("the mark reveals one band at a time from the top; reduced motion or a skip
 test("the idle screen's spoken name is the exact phrase (it shows no text)", () => {
   assert.equal(BOOT_LABEL, "Linear wrapped");
 });
+
+test("the cassette drop plays a click then a whirr, not the old chime, and fits inside the grant hold", () => {
+  assert.ok(!SOUNDS.includes("ready" as SoundName), "old chime is gone");
+  const full = planSound("tape", false);
+  const click = full.filter((e) => e.at < 0.1);
+  assert.ok(click.some((e) => e.kind === "noise") && full.some((e) => e.kind === "sawtooth" && e.at >= 0.1), "click then motor whirr");
+  assert.ok(full.every((e) => e.kind !== "square" || (e.freq < 300 && e.at < 0.1)), "no pitched chime notes");
+  assert.ok(soundLength(full) < GRANT_HOLD_MS / 1000);
+  assert.ok(soundLength(planSound("tape", true)) < GRANT_HOLD_REDUCED_MS / 1000);
+});

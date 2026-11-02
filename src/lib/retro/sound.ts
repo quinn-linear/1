@@ -5,7 +5,7 @@
  * Nothing is sampled or licensed; everything is square/saw/noise.
  */
 
-export type SoundName = "key" | "disk" | "advance" | "toggle" | "error" | "ready";
+export type SoundName = "key" | "disk" | "advance" | "toggle" | "error" | "tape";
 
 export interface SoundEvent {
   /** Seconds after the sound starts. */
@@ -27,13 +27,13 @@ export const MASTER_GAIN = 0.12;
 export const MAX_SOUND_SECONDS = 2.4;
 export const MAX_EVENTS = 40;
 /** Same sound won't retrigger faster than this (fast typing, key repeat). */
-export const MIN_GAP_MS: Record<SoundName, number> = { key: 35, disk: 1500, advance: 90, toggle: 120, error: 400, ready: 800 };
+export const MIN_GAP_MS: Record<SoundName, number> = { key: 35, disk: 1500, advance: 90, toggle: 120, error: 400, tape: 1500 };
 
 const step = (at: number, freq: number): SoundEvent => ({ at, dur: 0.035, kind: "square", freq, to: freq * 0.6, gain: 0.5 });
 
 /**
- * `reduced` is for people who asked for reduced motion: the long drive whirr
- * becomes a single short click, and key ticks are quieter.
+ * `reduced` is for people who asked for reduced motion: the long drive and tape whirrs
+ * become a single short click, and key ticks are quieter.
  */
 export function planSound(name: SoundName, reduced = false): SoundEvent[] {
   switch (name) {
@@ -65,12 +65,23 @@ export function planSound(name: SoundName, reduced = false): SoundEvent[] {
       return [{ at: 0, dur: 0.06, kind: "triangle", freq: 440, to: 330, gain: 0.45 }];
     case "error":
       return [{ at: 0, dur: 0.18, kind: "square", freq: 150, gain: 0.35 }];
-    case "ready":
-      return [
-        { at: 0, dur: 0.07, kind: "square", freq: 523, gain: 0.35 },
-        { at: 0.08, dur: 0.07, kind: "square", freq: 659, gain: 0.35 },
-        { at: 0.16, dur: 0.14, kind: "square", freq: 784, gain: 0.35 },
+    case "tape": {
+      // Cassette dropped into the deck: a plastic click and a latch thunk, then the motor
+      // spinning up with a soft spool whirr. Ends inside the grant hold so the redirect never waits on it.
+      const click: SoundEvent[] = [
+        { at: 0, dur: 0.014, kind: "noise", freq: 0, gain: 0.7, filter: 3200 },
+        { at: 0.006, dur: 0.05, kind: "square", freq: 240, to: 120, gain: 0.3 },
+        { at: 0.07, dur: 0.03, kind: "noise", freq: 0, gain: 0.5, filter: 1800 },
       ];
+      if (reduced) return click;
+      return [
+        ...click,
+        // Motor: low saw rising as it comes up to speed, with a hiss of tape and spool noise.
+        { at: 0.16, dur: 0.7, kind: "sawtooth", freq: 70, to: 150, gain: 0.16 },
+        { at: 0.16, dur: 0.7, kind: "triangle", freq: 420, to: 760, gain: 0.05 },
+        { at: 0.16, dur: 0.7, kind: "noise", freq: 0, gain: 0.1, filter: 2200 },
+      ];
+    }
   }
 }
 

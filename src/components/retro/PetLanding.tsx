@@ -104,7 +104,7 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
     if (launched.current) return;
     launched.current = true;
     setBootSkipped(true);
-    play("ready");
+    play("tape");
     const pet = petRef.current?.getBoundingClientRect();
     if (pet && rest) {
       move(centeredOffset(rest, toBox(pet)));
