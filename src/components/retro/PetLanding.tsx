@@ -7,17 +7,16 @@ import { ACCESS_GRANTED, CONNECTING, grantHold, grantReducer } from "@/lib/retro
 import { TAP_SLOP_PX, centeredOffset, clampOffset, containsPoint, isIntentionalDrop, startIntent, updateIntent, type Box, type DragIntent } from "@/lib/retro/drag";
 import { CASSETTE_REST, PET_ART, PET_COMPUTER, PET_DROP, PET_FOCUS, PET_NOTEPAD, PET_SCREEN } from "@/lib/retro/art";
 import { sceneRestingBox, scenePlacement } from "@/lib/retro/cover";
-import { BOOT_LABEL, LOGO_RADIUS, LOGO_VIEWBOX, logoRows, logoSchedule } from "@/lib/retro/logo";
+import { BOOT_LABEL } from "@/lib/retro/logo";
+import { LinearLogo } from "./LinearLogo";
 import { Cassette } from "./Cassette";
 import { PetComputer, type PetState } from "./PetComputer";
-import { SoundToggle, useSound } from "./Sound";
+import { AmbienceScene, SoundToggle, useSound } from "./Sound";
 
 /** Above everything on the page, whatever stacking context or clipping box it would otherwise live in. */
 const TOP_LAYER = 2147483647;
 
 const toBox = (r: DOMRect): Box => ({ left: r.left, top: r.top, width: r.width, height: r.height });
-
-const LOGO_ROWS = logoRows();
 
 /**
  * The landing screen: the PET photograph fills the whole viewport (where that shows the whole computer;
@@ -205,8 +204,6 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
         ? `${ACCESS_GRANTED}. ${CONNECTING}`
         : "Drag the cassette onto the computer, or press Enter or Space on it, to sign in with Linear.";
 
-  const bandDelays = logoSchedule(false);
-
   return (
     <div className="contents">
       <PetComputer state={petState} viewRef={petRef} placement={placement}>
@@ -219,22 +216,7 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
         ) : (
           // The idle screen: only the mark, centred, and the cursor at the bottom right. The art is decorative; the group carries the name once.
           <div role="group" aria-label={BOOT_LABEL} className={`boot pet-idle ${bootSkipped ? "boot-skip" : ""}`} onClick={() => setBootSkipped(true)}>
-            <svg aria-hidden focusable="false" viewBox={`0 0 ${LOGO_VIEWBOX} ${LOGO_VIEWBOX}`} className="boot-logo shrink-0 text-ph">
-              <defs>
-                <clipPath id="boot-logo-clip">
-                  <circle cx={LOGO_VIEWBOX / 2} cy={LOGO_VIEWBOX / 2} r={LOGO_RADIUS} />
-                </clipPath>
-              </defs>
-              <g clipPath="url(#boot-logo-clip)" fill="currentColor" shapeRendering="crispEdges">
-                {LOGO_ROWS.map((row, i) => (
-                  <g key={i} className="boot-line" style={{ animationDelay: `${bandDelays[i]}ms` }}>
-                    {row.polygons.map((points, j) => (
-                      <polygon key={j} points={points} />
-                    ))}
-                  </g>
-                ))}
-              </g>
-            </svg>
+            <LinearLogo />
             <span aria-hidden className="cursor-block" />
           </div>
         )}
@@ -242,6 +224,7 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
       <p className="sr-only" role="status">
         {status}
       </p>
+      <AmbienceScene />
       <SoundToggle variant="corner" className="!fixed right-3 top-3 z-40" />
 
       {rest &&

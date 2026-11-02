@@ -17,17 +17,3 @@ export const SPARSE_NOTE = (closed: number, year: number) =>
 /** What "closed" means, shown when there's nothing to wrap so the zero isn't a mystery. */
 export const COUNTING_RULE = (year: number) =>
   `We count issues assigned to you that were completed in ${year}. Canceled issues, and issues since reassigned to someone else, aren't counted.`;
-
-/** Playful lines that cycle while stats load. They say what is being looked at, never how far along it is. */
-export const LOADING_MESSAGES = [
-  "Rounding up everything you closed",
-  "Counting your active days",
-  "Hunting for your longest streak",
-  "Finding your busiest month",
-  "Checking on that oldest open issue",
-  "Deciding what kind of builder you are",
-] as const;
-
-export const nextLoadingIndex = (i: number, length: number = LOADING_MESSAGES.length) => (length > 0 ? (i + 1) % length : 0);
-
-export const LOADING_HINT = "Bigger workspaces take longer. We read up to 5,000 issues per list.";

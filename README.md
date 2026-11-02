@@ -90,7 +90,7 @@ Limits and honest limitations:
 
 ## Loading, empty states and metadata (step 7)
 
-**Loading.** `/wrapped` checks the session cookie first (signed-out visitors redirect immediately), then streams: the stats crawl runs inside a `<Suspense>` boundary, so a playful loading screen is sent right away and swapped for the story when stats are ready. It is indeterminate on purpose (we can't know how far the Linear calls are), so there is no progress bar or percentage; the cycling lines only say what is being looked at. Motion is CSS-only, off under `prefers-reduced-motion` (the lines also stop cycling), and screen readers get one `role="status"` message.
+**Loading.** `/wrapped` checks the session cookie first (signed-out visitors redirect immediately), then streams: the stats crawl runs inside a `<Suspense>` boundary. The fallback is blank (the dark desk) for the first 400ms (`LOADING_DELAY_MS`), so a fast load shows no flash; after that it shows the PET boot's 17-band Linear mark and "loading your Linear workspace". It is indeterminate on purpose (no progress bar or percentage). The sweep plays once and is static under `prefers-reduced-motion`; screen readers get one `role="status"` message. The "Enter recap" screen after it is kept: its click is what allows full screen.
 
 **Empty and sparse.** Zero closed issues shows a dedicated page instead of 16 empty cards: it explains how "closed" is counted, keeps the real metrics we do have (oldest open issue, workspace integrations, undercount note if truncated) and links to Open Linear, `/wrapped?cards=1` (the full story anyway) and Sign out. Fewer than 10 closed issues (the same cutoff as the archetype's "insufficient data") shows the full story with an honest note on the intro card. Nothing is estimated.
 

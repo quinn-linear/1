@@ -7,7 +7,7 @@ import { WrappedLoading } from "@/components/wrapped/Loading";
 import { toRecap } from "@/lib/recap";
 import { getAccessToken } from "@/lib/session";
 import { recapDensity } from "@/lib/sparse";
-import { DEFAULT_YEAR, getWrappedStats, type WrappedStats } from "@/lib/stats";
+import { getWrappedStats, type WrappedStats } from "@/lib/stats";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +25,9 @@ export default async function WrappedPage({ searchParams }: { searchParams: Prom
   if (!token) redirect("/");
   const { cards } = await searchParams;
 
-  // The slow Linear crawl happens inside the boundary, so the loading screen is sent right away and replaced when stats arrive.
+  // The slow Linear crawl happens inside the boundary, so the fallback is streamed right away (blank for the first moments, then the logo; see `WrappedLoading`) and replaced when stats arrive.
   return (
-    <Suspense fallback={<WrappedLoading year={DEFAULT_YEAR} />}>
+    <Suspense fallback={<WrappedLoading />}>
       <WrappedContent token={token} showCards={cards === "1"} />
     </Suspense>
   );
