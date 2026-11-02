@@ -10,7 +10,7 @@ import { sceneRestingBox, scenePlacement } from "@/lib/retro/cover";
 import { BOOT_LABEL, LOGO_RADIUS, LOGO_VIEWBOX, logoRows, logoSchedule } from "@/lib/retro/logo";
 import { Cassette } from "./Cassette";
 import { PetComputer, type PetState } from "./PetComputer";
-import { useSound } from "./Sound";
+import { SoundToggle, useSound } from "./Sound";
 
 /** Above everything on the page, whatever stacking context or clipping box it would otherwise live in. */
 const TOP_LAYER = 2147483647;
@@ -242,6 +242,7 @@ export function PetLanding({ year, startPath }: { year: number; startPath: strin
       <p className="sr-only" role="status">
         {status}
       </p>
+      <SoundToggle variant="corner" className="!fixed right-3 top-3 z-40" />
 
       {rest &&
         createPortal(
