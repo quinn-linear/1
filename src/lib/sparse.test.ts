@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MIN_COMPLETIONS } from "./stats/archetype.ts";
-import { COUNTING_RULE, LOADING_MESSAGES, SPARSE_NOTE, nextLoadingIndex, recapDensity } from "./sparse.ts";
+import { COUNTING_RULE, SPARSE_NOTE, recapDensity } from "./sparse.ts";
 
 const recap = (totalClosed: number) => ({ totalClosed, archetype: { insufficientData: totalClosed < MIN_COMPLETIONS } }) as never;
 
@@ -17,13 +17,4 @@ test("sparse note states the real count and year, with correct plural", () => {
   assert.match(SPARSE_NOTE(7, 2026), /7 closed issues\./);
   assert.match(SPARSE_NOTE(7, 2026), /2026/);
   assert.match(COUNTING_RULE(2026), /completed in 2026/);
-});
-
-test("loading messages cycle and never claim progress", () => {
-  assert.ok(LOADING_MESSAGES.length > 1);
-  let i = 0;
-  for (let n = 0; n < LOADING_MESSAGES.length; n++) i = nextLoadingIndex(i);
-  assert.equal(i, 0);
-  assert.equal(nextLoadingIndex(0, 0), 0);
-  for (const m of LOADING_MESSAGES) assert.doesNotMatch(m, /%|\d|done|complete|almost/i, m);
 });

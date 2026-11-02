@@ -3,7 +3,8 @@
 import { useReducedMotion } from "framer-motion";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { SoundOff, SoundOn } from "@/components/icons";
-import { createAmbience, type Ambience } from "@/lib/retro/ambience";
+import { createAmbience } from "@/lib/retro/ambience";
+import { createAmbienceScene, type AmbienceScene as SceneController } from "@/lib/retro/ambienceScene";
 import { MASTER_GAIN, MAX_SOUND_SECONDS, SOUND_STORAGE_KEY, allowSound, initialSoundEnabled, planSound, type SoundEvent, type SoundName } from "@/lib/retro/sound";
 
 interface SoundApi {
@@ -11,9 +12,11 @@ interface SoundApi {
   toggle: () => void;
   /** Call from a user event handler only; it does nothing while muted or rate-limited. */
   play: (name: SoundName) => void;
+  /** Claimed by the landing scene while mounted; the hum never runs without it. */
+  setAmbientScene: (active: boolean) => void;
 }
 
-const SoundContext = createContext<SoundApi>({ enabled: false, toggle: () => {}, play: () => {} });
+const SoundContext = createContext<SoundApi>({ enabled: false, toggle: () => {}, play: () => {}, setAmbientScene: () => {} });
 export const useSound = () => useContext(SoundContext);
 
 // The saved choice lives in localStorage; a tiny store keeps every toggle on the page in sync.
@@ -115,52 +118,52 @@ export function SoundProvider({ children }: { children: ReactNode }) {
 
   const play = useCallback((name: SoundName) => enabled && playNow(name), [enabled, playNow]);
 
-  // One ambience per page: the provider lives in the root layout, so it survives navigation.
-  const unlocked = useRef(false);
-  const ambienceRef = useRef<Ambience | null>(null);
-  const getAmbience = useCallback(() => (ambienceRef.current ??= createAmbience({ getOutput: output })), [output]);
+  // The hum belongs to the landing scene (`AmbienceScene` below): the provider lives in the root layout and survives navigation, so the scene controller decides when it may run.
+  const ambience = useRef<SceneController | null>(null);
+  const getScene = useCallback(() => (ambience.current ??= createAmbienceScene(createAmbience({ getOutput: output }))), [output]);
 
   const toggle = useCallback(() => {
     saveChoice(!enabled);
-    const ambience = getAmbience();
-    if (enabled) {
-      ambience.stop();
-      return;
-    }
-    // Turning sound on gives a confirming blip and starts the hum (this click is the user gesture that unlocks audio).
-    unlocked.current = true;
+    if (enabled) return; // the effect below stops the hum
+    // Turning sound on gives a confirming blip; this click is the user gesture that unlocks audio.
     playNow("toggle");
-    void ambience.start();
-  }, [enabled, playNow, getAmbience]);
+    getScene().unlock();
+  }, [enabled, playNow, getScene]);
 
   useEffect(() => {
-    const amb = getAmbience();
+    const scene = getScene();
+    scene.setEnabled(enabled);
     if (!enabled) return;
-    const begin = () => {
-      unlocked.current = true;
-      void amb.start();
-    };
     // A saved "on" still waits for the first click, tap or key press: browsers block audio before one.
+    const begin = () => scene.unlock();
     const gestures = ["pointerdown", "keydown"] as const;
     gestures.forEach((g) => window.addEventListener(g, begin, { once: true }));
     const onVisibility = () => {
-      if (document.hidden) {
-        amb.stop();
-        void audio.current?.ctx.suspend?.()?.catch(() => {});
-      } else if (unlocked.current) {
-        void amb.start();
-      }
+      scene.setHidden(document.hidden);
+      if (document.hidden) void audio.current?.ctx.suspend?.()?.catch(() => {});
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       gestures.forEach((g) => window.removeEventListener(g, begin));
       document.removeEventListener("visibilitychange", onVisibility);
-      amb.stop();
+      scene.setEnabled(false);
     };
-  }, [enabled, getAmbience]);
+  }, [enabled, getScene]);
 
-  const api = useMemo(() => ({ enabled, toggle, play }), [enabled, toggle, play]);
+  const setAmbientScene = useCallback((active: boolean) => getScene().setScene(active), [getScene]);
+
+  const api = useMemo(() => ({ enabled, toggle, play, setAmbientScene }), [enabled, toggle, play, setAmbientScene]);
   return <SoundContext.Provider value={api}>{children}</SoundContext.Provider>;
+}
+
+/** Render only on the landing scene: the machine-room hum and beeps run while it is mounted and stop the moment it unmounts. */
+export function AmbienceScene() {
+  const { setAmbientScene } = useSound();
+  useEffect(() => {
+    setAmbientScene(true);
+    return () => setAmbientScene(false);
+  }, [setAmbientScene]);
+  return null;
 }
 
 /** Mute switch, always visible wherever sound can play. `screen` styles it as an on-screen button, `key` as a keycap on the hardware. */

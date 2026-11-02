@@ -1,32 +1,37 @@
-import { LOADING_HINT } from "@/lib/sparse";
-import { LoadingMessage } from "./LoadingMessage";
+"use client";
+
+import { useEffect, useState } from "react";
+import { LinearLogo } from "@/components/retro/LinearLogo";
+import { LOADING_COPY, LOADING_DELAY_MS } from "@/lib/loading";
 
 /**
- * Suspense fallback for `/wrapped` while stats are computed. A server component
- * with CSS-only motion (off under reduced motion) and an indeterminate look on
- * purpose: we don't know how far along the Linear API calls are, so no progress
- * bar or percentage is shown. The disk drive spins up and the cursor blinks.
+ * Suspense fallback for `/wrapped` while stats are computed. It is part of the
+ * streamed HTML, so it is on screen from the first byte, but for the first
+ * `LOADING_DELAY_MS` it is just the empty dark desk (same full-height box, so
+ * nothing shifts when it fills in). Fast loads replace it with the recap and the
+ * timer is cleared on unmount; slow loads get the Linear mark and one line of
+ * copy. The server render and first client render are both the empty state, so
+ * hydration can't flicker. The mark's sweep plays once and is static under
+ * reduced motion; the status region is always mounted so its text is announced
+ * when it appears.
  */
-export function WrappedLoading({ year }: { year: number }) {
+export function WrappedLoading() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShow(true), LOADING_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <main className="desk flex min-h-dvh items-center px-2 py-4 sm:px-6">
-      <div className="case mx-auto w-full max-w-3xl rounded-[14px] p-3 sm:p-5">
-        <div className="crt relative min-h-[22rem] overflow-hidden rounded-[2.5%/3.5%] border-4 border-[#0d0c08] p-5 text-ph phosphor sm:p-8" role="status">
-          <span className="sr-only">Wrapping your {year} in Linear. This can take a moment.</span>
-          <div aria-hidden className="flex min-h-[19rem] flex-col justify-end gap-1 text-xl uppercase sm:text-3xl">
-            <p>LOAD &quot;LINEAR WRAPPED {year}&quot;,8</p>
-            <p>SEARCHING FOR YOUR YEAR</p>
-            <p className="text-amber">LOADING</p>
-            <LoadingMessage />
-            <p className="mt-3 max-w-md text-base normal-case text-ph/80 sm:text-xl">{LOADING_HINT}</p>
-            <p>
-              <span className="cursor-block" />
-            </p>
-          </div>
-          <div aria-hidden className="absolute right-5 top-5 flex items-center gap-2 text-base uppercase text-amber sm:text-xl">
-            Drive busy <span className="h-3 w-3 bg-[var(--led)] shadow-[0_0_8px_var(--led)]" />
-          </div>
-        </div>
+    <main className="desk flex min-h-dvh items-center justify-center px-2 py-4 sm:px-6">
+      <div role="status" className={show ? "crt relative flex flex-col items-center gap-6 overflow-hidden rounded-[2.5%/3.5%] border-4 border-[#0d0c08] px-10 py-12 text-ph phosphor sm:px-16" : "sr-only"}>
+        {show && (
+          <>
+            <LinearLogo clipId="loading-logo-clip" className="text-[min(4vw,1.5rem)]" />
+            <p className="text-lg lowercase sm:text-2xl">{LOADING_COPY}</p>
+          </>
+        )}
       </div>
     </main>
   );
