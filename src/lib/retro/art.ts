@@ -75,3 +75,13 @@ export const PET_BEAM: Rect = { x: 40 / 1672, y: 185 / 941, w: 395 / 1672, h: 36
 export const BEAM_POLYGON: readonly (readonly [number, number])[] = (
   [[70, 255], [285, 190], [430, 470], [430, 540], [40, 540]] as const
 ).map(([x, y]) => [(x - 40) / 395, (y - 185) / 360] as const);
+
+/**
+ * The coffee cup on the desk (right, behind the notepad), measured from the picture: its rim's
+ * opening is an ellipse centred at (1400, 485) of 77 x 15 px radii. `PET_STEAM` is the box the
+ * steam rises through, as fractions of the whole picture, with its bottom edge on the rim's
+ * centre; `STEAM_RIM` is the opening in 0-1 coordinates of that box. It reaches neither the
+ * screen nor the notepad, so the steam never crosses the tape's resting place.
+ */
+export const PET_STEAM: Rect = { x: 1290 / 1672, y: 290 / 941, w: 220 / 1672, h: 195 / 941 };
+export const STEAM_RIM = { x: (1400 - 1290) / 220, y: 1, rx: 77 / 220, ry: 15 / 195 };

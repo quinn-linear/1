@@ -316,6 +316,13 @@ input.term-input {
   height: calc(var(--bh) * 100%);
 }
 
+.pet-steam-zone {
+  left: calc(var(--mx) * 100%);
+  top: calc(var(--my) * 100%);
+  width: calc(var(--mw) * 100%);
+  height: calc(var(--mh) * 100%);
+}
+
 .pet-terminal {
   font-size: var(--fs);
   line-height: 0.95;
