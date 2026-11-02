@@ -1,8 +1,9 @@
 "use client";
 
 import { useReducedMotion } from "framer-motion";
-import { createContext, useCallback, useContext, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { SoundOff, SoundOn } from "@/components/icons";
+import { createAmbience, type Ambience } from "@/lib/retro/ambience";
 import { MASTER_GAIN, MAX_SOUND_SECONDS, SOUND_STORAGE_KEY, allowSound, initialSoundEnabled, planSound, type SoundEvent, type SoundName } from "@/lib/retro/sound";
 
 interface SoundApi {
@@ -81,7 +82,7 @@ function schedule(ctx: AudioContext, master: GainNode, events: SoundEvent[]) {
 export function SoundProvider({ children }: { children: ReactNode }) {
   const reduced = !!useReducedMotion();
   const saved = useSyncExternalStore(subscribe, () => memory ?? readSaved(), () => null);
-  const enabled = initialSoundEnabled(saved, reduced);
+  const enabled = initialSoundEnabled(saved);
   const audio = useRef<{ ctx: AudioContext; master: GainNode } | null>(null);
   const last = useRef<Partial<Record<SoundName, number>>>({});
 
@@ -95,7 +96,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       master.connect(ctx.destination);
       audio.current = { ctx, master };
     }
-    if (audio.current.ctx.state === "suspended") void audio.current.ctx.resume();
+    if (audio.current.ctx.state === "suspended") audio.current.ctx.resume().catch(() => {});
     return audio.current;
   }, []);
 
@@ -114,22 +115,67 @@ export function SoundProvider({ children }: { children: ReactNode }) {
 
   const play = useCallback((name: SoundName) => enabled && playNow(name), [enabled, playNow]);
 
+  // One ambience per page: the provider lives in the root layout, so it survives navigation.
+  const unlocked = useRef(false);
+  const ambienceRef = useRef<Ambience | null>(null);
+  const getAmbience = useCallback(() => (ambienceRef.current ??= createAmbience({ getOutput: output })), [output]);
+
   const toggle = useCallback(() => {
     saveChoice(!enabled);
-    // Turning sound on gives a confirming blip (this click is the user gesture that unlocks audio).
-    if (!enabled) playNow("toggle");
-  }, [enabled, playNow]);
+    const ambience = getAmbience();
+    if (enabled) {
+      ambience.stop();
+      return;
+    }
+    // Turning sound on gives a confirming blip and starts the hum (this click is the user gesture that unlocks audio).
+    unlocked.current = true;
+    playNow("toggle");
+    void ambience.start();
+  }, [enabled, playNow, getAmbience]);
+
+  useEffect(() => {
+    const amb = getAmbience();
+    if (!enabled) return;
+    const begin = () => {
+      unlocked.current = true;
+      void amb.start();
+    };
+    // A saved "on" still waits for the first click, tap or key press: browsers block audio before one.
+    const gestures = ["pointerdown", "keydown"] as const;
+    gestures.forEach((g) => window.addEventListener(g, begin, { once: true }));
+    const onVisibility = () => {
+      if (document.hidden) {
+        amb.stop();
+        void audio.current?.ctx.suspend?.()?.catch(() => {});
+      } else if (unlocked.current) {
+        void amb.start();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      gestures.forEach((g) => window.removeEventListener(g, begin));
+      document.removeEventListener("visibilitychange", onVisibility);
+      amb.stop();
+    };
+  }, [enabled, getAmbience]);
 
   const api = useMemo(() => ({ enabled, toggle, play }), [enabled, toggle, play]);
   return <SoundContext.Provider value={api}>{children}</SoundContext.Provider>;
 }
 
 /** Mute switch, always visible wherever sound can play. `screen` styles it as an on-screen button, `key` as a keycap on the hardware. */
-export function SoundToggle({ className = "", variant = "key" }: { className?: string; variant?: "key" | "screen" | "dock" }) {
+export function SoundToggle({ className = "", variant = "key" }: { className?: string; variant?: "key" | "screen" | "dock" | "corner" }) {
   const { enabled, toggle } = useSound();
   if (variant === "dock") {
     return (
       <button type="button" onClick={toggle} aria-pressed={enabled} aria-label="Sound effects" data-tip={enabled ? "Sound on" : "Sound off"} className={`dock-btn ${className}`}>
+        {enabled ? <SoundOn /> : <SoundOff />}
+      </button>
+    );
+  }
+  if (variant === "corner") {
+    return (
+      <button type="button" onClick={toggle} aria-pressed={enabled} aria-label="Sound" className={`dock-btn dock-btn-close ${className}`}>
         {enabled ? <SoundOn /> : <SoundOff />}
       </button>
     );

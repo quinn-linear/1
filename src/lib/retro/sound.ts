@@ -85,12 +85,48 @@ export function allowSound(name: SoundName, now: number, last: Partial<Record<So
 export const SOUND_STORAGE_KEY = "lw-sound";
 
 /**
- * Default is on for ordinary visitors (a sound only ever plays in direct
- * response to their own click or key press, never on load) and off for anyone
- * who prefers reduced motion. A saved choice always wins.
+ * Sound is off until the visitor turns it on (the effects and the ambience
+ * below share this one switch). A saved "on" is that explicit opt-in; anything
+ * else, including no saved choice, is off.
  */
-export function initialSoundEnabled(saved: string | null, prefersReducedMotion: boolean): boolean {
-  if (saved === "on") return true;
-  if (saved === "off") return false;
-  return !prefersReducedMotion;
+export function initialSoundEnabled(saved: string | null): boolean {
+  return saved === "on";
+}
+
+// ---- Ambience: a low machine-room hum with an occasional soft server beep ----
+
+/** The ambience bus sits under the master gain (`MASTER_GAIN`), so this is "very quiet" on top of "modest". */
+export const AMBIENCE_LEVEL = 0.4;
+export const AMBIENCE_FADE_IN_S = 2;
+export const AMBIENCE_FADE_OUT_S = 0.08;
+/** A beep never comes sooner than this after the last one, and never later than the max. */
+export const BEEP_MIN_GAP_MS = 12_000;
+export const BEEP_MAX_GAP_MS = 32_000;
+
+export interface HumLayer {
+  kind: "sine" | "triangle" | "noise";
+  /** Oscillator pitch in Hz; for noise, the low-pass cutoff. */
+  freq: number;
+  gain: number;
+}
+
+/** Mains hum and its second harmonic, a faint buzz, and a low fan rush. */
+export const HUM_LAYERS: readonly HumLayer[] = [
+  { kind: "sine", freq: 60, gain: 0.5 },
+  { kind: "sine", freq: 120, gain: 0.22 },
+  { kind: "triangle", freq: 180, gain: 0.05 },
+  { kind: "noise", freq: 320, gain: 0.3 },
+];
+
+/** Delay before the next beep, from a random value in [0, 1). */
+export const nextBeepDelayMs = (rand: number) => Math.round(BEEP_MIN_GAP_MS + Math.min(Math.max(rand, 0), 1) * (BEEP_MAX_GAP_MS - BEEP_MIN_GAP_MS));
+
+const BEEP_PITCHES = [880, 988, 1175];
+
+/** One restrained status beep, now and then a double. Soft triangle, never a siren. */
+export function planBeep(rand: () => number): SoundEvent[] {
+  const freq = BEEP_PITCHES[Math.floor(rand() * BEEP_PITCHES.length) % BEEP_PITCHES.length];
+  const events: SoundEvent[] = [{ at: 0, dur: 0.09, kind: "triangle", freq, gain: 0.14 }];
+  if (rand() < 0.25) events.push({ at: 0.2, dur: 0.09, kind: "triangle", freq, gain: 0.14 });
+  return events;
 }

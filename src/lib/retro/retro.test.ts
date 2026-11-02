@@ -39,12 +39,11 @@ test("sounds are rate limited per name", () => {
   assert.ok(allowSound("advance", 1001, last), "other sounds are independent");
 });
 
-test("sound defaults on, off for reduced motion, and a saved choice always wins", () => {
-  assert.equal(initialSoundEnabled(null, false), true);
-  assert.equal(initialSoundEnabled(null, true), false);
-  assert.equal(initialSoundEnabled("on", true), true);
-  assert.equal(initialSoundEnabled("off", false), false);
-  assert.equal(initialSoundEnabled("garbage", false), true);
+test("sound is off unless the visitor saved an explicit \"on\"", () => {
+  assert.equal(initialSoundEnabled(null), false);
+  assert.equal(initialSoundEnabled("off"), false);
+  assert.equal(initialSoundEnabled("garbage"), false);
+  assert.equal(initialSoundEnabled("on"), true);
 });
 
 test("grant flow: grab, hover over the computer, release over it -> granted -> launching", () => {
